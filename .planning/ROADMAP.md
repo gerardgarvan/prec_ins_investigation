@@ -55,10 +55,10 @@ Plans:
 4. Encounter-diagnosis-procedure-insurance merges produce row counts within 1% of SAS JOIN output
 5. Data quality assertions run after all merges and flag any unexpected missing values or range violations
 
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 02-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all CLN/MRG requirements)
+- [x] 02-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all CLN/MRG requirements)
 - [ ] 02-02-PLAN.md — Encounter cleaning (02_clean.R: import, combine, payer/enc_type recoding, dx/proc concat)
 - [ ] 02-03-PLAN.md — Data merging (02_merge.R: encounter-dx-proc-provider joins with row count validation)
 - [ ] 02-04-PLAN.md — Pipeline integration (update run_all.R, full test suite verification)
@@ -103,7 +103,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Import & Format Translation | 3/3 | Complete | 2026-04-16 |
-| 2. Data Cleaning & Merging | 0/4 | Planned | - |
+| 2. Data Cleaning & Merging | 1/4 | In Progress|  |
 | 3. Analytical Dataset Construction | 0/0 | Not started | - |
 | 4. Statistical Analysis & Output | 0/0 | Not started | - |
 

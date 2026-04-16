@@ -17,19 +17,19 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Data Cleaning
 
-- [ ] **CLN-01**: All variable names are standardized to consistent case (janitor::clean_names)
-- [ ] **CLN-02**: Encounter datasets (encounter1 + encounter2) are correctly combined into single dataset
-- [ ] **CLN-03**: Insurance payer type codes are recoded from raw PCORnet codes to grouped categories matching SAS logic
-- [ ] **CLN-04**: Missing values are handled explicitly with is.na() — no implicit SAS-style missing comparisons
-- [ ] **CLN-05**: Encounter type, discharge status, and discharge disposition are recoded with proper factor levels
-- [ ] **CLN-06**: Primary and secondary payer types are derived with correct grouping logic (including dual Medicare/Medicaid)
+- [x] **CLN-01**: All variable names are standardized to consistent case (janitor::clean_names)
+- [x] **CLN-02**: Encounter datasets (encounter1 + encounter2) are correctly combined into single dataset
+- [x] **CLN-03**: Insurance payer type codes are recoded from raw PCORnet codes to grouped categories matching SAS logic
+- [x] **CLN-04**: Missing values are handled explicitly with is.na() — no implicit SAS-style missing comparisons
+- [x] **CLN-05**: Encounter type, discharge status, and discharge disposition are recoded with proper factor levels
+- [x] **CLN-06**: Primary and secondary payer types are derived with correct grouping logic (including dual Medicare/Medicaid)
 
 ### Data Merging
 
-- [ ] **MRG-01**: Encounters merge correctly with diagnoses, procedures, and provider data by appropriate keys
-- [ ] **MRG-02**: Row counts are validated after every merge operation (logged to console)
-- [ ] **MRG-03**: Many-to-many merge relationships are identified and handled appropriately (no unintended Cartesian products)
-- [ ] **MRG-04**: Data quality assertions verify key variables after merges (no unexpected NAs, correct value ranges)
+- [x] **MRG-01**: Encounters merge correctly with diagnoses, procedures, and provider data by appropriate keys
+- [x] **MRG-02**: Row counts are validated after every merge operation (logged to console)
+- [x] **MRG-03**: Many-to-many merge relationships are identified and handled appropriately (no unintended Cartesian products)
+- [x] **MRG-04**: Data quality assertions verify key variables after merges (no unexpected NAs, correct value ranges)
 
 ### Cohort Construction
 
@@ -122,16 +122,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IMP-03 | Phase 1 | Complete |
 | IMP-04 | Phase 1 | Complete |
 | IMP-05 | Phase 1 | Complete |
-| CLN-01 | Phase 2 | Pending |
-| CLN-02 | Phase 2 | Pending |
-| CLN-03 | Phase 2 | Pending |
-| CLN-04 | Phase 2 | Pending |
-| CLN-05 | Phase 2 | Pending |
-| CLN-06 | Phase 2 | Pending |
-| MRG-01 | Phase 2 | Pending |
-| MRG-02 | Phase 2 | Pending |
-| MRG-03 | Phase 2 | Pending |
-| MRG-04 | Phase 2 | Pending |
+| CLN-01 | Phase 2 | Complete |
+| CLN-02 | Phase 2 | Complete |
+| CLN-03 | Phase 2 | Complete |
+| CLN-04 | Phase 2 | Complete |
+| CLN-05 | Phase 2 | Complete |
+| CLN-06 | Phase 2 | Complete |
+| MRG-01 | Phase 2 | Complete |
+| MRG-02 | Phase 2 | Complete |
+| MRG-03 | Phase 2 | Complete |
+| MRG-04 | Phase 2 | Complete |
 | COH-01 | Phase 3 | Pending |
 | COH-02 | Phase 3 | Pending |
 | COH-03 | Phase 3 | Pending |
