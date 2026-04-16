@@ -12,7 +12,9 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Translate SAS format definitions (Formats.sas) to R factor labels — *Validated in Phase 1: Data Import & Format Translation*
+- [x] Structure as modular R scripts (01_clean.R, 02_merge.R, etc.) with master runner script — *Validated in Phase 1: Data Import & Format Translation*
+- [x] Document all logic decisions and error fixes in code comments — *Validated in Phase 1: Data Import & Format Translation*
 
 ### Active
 
@@ -23,13 +25,10 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 - [ ] Translate exposure variable creation: insurance change (pct_change_ins), treatment intensity, cancer site groups
 - [ ] Translate outcome variable creation: cancer-related visits, survivorship visits, non-acute care encounters, person-time calculation
 - [ ] Translate covariate processing: demographics (sex, race, Hispanic), SDI score, RUCA, age categories
-- [ ] Translate SAS format definitions (Formats.sas) to R factor labels
 - [ ] Create Table 1 (patient characteristics by exposure groups)
 - [ ] Create bivariate test outputs (chi-square, Wilcoxon rank sum)
 - [ ] Create regression models (Poisson/negative binomial with person-time offset) for visit rate outcomes
 - [ ] Create frequency/cross-tabulation tables for key variables
-- [ ] Structure as modular R scripts (01_clean.R, 02_merge.R, etc.) with master runner script
-- [ ] Document all logic decisions and error fixes in code comments
 
 ### Out of Scope
 
@@ -88,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-16 after initialization*
+*Last updated: 2026-04-16 after Phase 1 completion*
