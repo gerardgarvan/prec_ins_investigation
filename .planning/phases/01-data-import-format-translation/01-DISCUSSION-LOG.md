@@ -124,9 +124,62 @@
 
 ---
 
+---
+
+## Update Session: V5 Files Added (2026-04-16)
+
+User added ~32 new V5 series SAS files + glimmix.sas macro to the project directory.
+
+### Q1: Which SAS version should the R pipeline target?
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| V5 as primary (Recommended) | V5 is latest analytical approach. Use V5 logic as primary, V4 only when V5 is incomplete. | ✓ |
+| V4 and V5 together | Forensically merge both versions as one evolving codebase. | |
+| V4 only | Ignore V5 files, stick with original scope. | |
+
+**User's choice:** V5 as primary (Recommended)
+**Notes:** V5 files use Data_v5 directory, introduce multiple imputation, GLIMMIX/COUNTREG models, and new CDM table names with _v5 suffix.
+
+### Q2: GLIMMIX macro availability
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| I can add it | User has access to glimmix.sas and can add it. | ✓ |
+| Don't have it | Macro not available, reconstruct from context. | |
+| Not sure | Need to check, note as potential blocker. | |
+
+**User's choice:** I can add it
+**Notes:** User added glimmix.sas to the project directory. It's a complex GLIMMIX helper macro for mixed effects models with multiple imputation.
+
+### Q3: Multiple imputation approach
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Include MI (Recommended) | Implement multiple imputation in R (mice package). Matches V5 approach. | ✓ |
+| Complete-case only | No imputation, matching V4. Simpler but may not match final analysis. | |
+| You decide | Claude determines based on which approach V5 uses for final results. | |
+
+**User's choice:** Include MI (Recommended)
+**Notes:** V5 uses PROC MIANALYZE with mi_table datasets. R pipeline will use mice package or similar.
+
+### Q4: Advanced model scope (GLIMMIX, COUNTREG)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Include all V5 models (Recommended) | Implement GLIMMIX and zero-truncated NB equivalents in R. | |
+| Stick to basic models | Only standard Poisson/NB. Note advanced models as future work. | |
+| You decide | Claude determines which models are used for final results. | ✓ |
+
+**User's choice:** You decide (Claude's discretion)
+**Notes:** Claude will forensically determine which V5 models (GLIMMIX, COUNTREG) are used for final output vs. exploratory, and implement appropriate R equivalents.
+
+---
+
 ## Claude's Discretion
 
 - Format duplicate resolution (D-02): Claude determines correct version per duplicate format block based on forensic analysis of downstream usage.
+- Advanced model selection (D-12): Claude determines which V5 models (GLIMMIX, COUNTREG) are used for final results and implements appropriate R equivalents.
 
 ## Deferred Ideas
 
