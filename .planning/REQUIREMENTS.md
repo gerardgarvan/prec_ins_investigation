@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **IMP-01**: R code reads all required SAS7BDAT files using haven::read_sas() with correct encoding
 - [ ] **IMP-02**: All SAS format definitions from Formats.sas are translated to R factor levels with matching labels
 - [ ] **IMP-03**: SAS date values convert correctly to R Date objects (validated against known dates)
-- [ ] **IMP-04**: All file paths are parameterized in a config file using here::here() — no hardcoded paths
+- [x] **IMP-04**: All file paths are parameterized in a config file using here::here() — no hardcoded paths
 - [ ] **IMP-05**: Variable labels from SAS datasets are preserved as R attributes
 
 ### Data Cleaning
@@ -74,12 +74,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Pipeline Infrastructure
 
-- [ ] **INF-01**: Code organized as numbered modular scripts (01_import.R through final output script)
-- [ ] **INF-02**: Master runner script (run_all.R) executes full pipeline from data import to final outputs
-- [ ] **INF-03**: Config files separate file paths and study parameters from analysis code
-- [ ] **INF-04**: All logic decisions and SAS error fixes documented in code comments
+- [x] **INF-01**: Code organized as numbered modular scripts (01_import.R through final output script)
+- [x] **INF-02**: Master runner script (run_all.R) executes full pipeline from data import to final outputs
+- [x] **INF-03**: Config files separate file paths and study parameters from analysis code
+- [x] **INF-04**: All logic decisions and SAS error fixes documented in code comments
 - [ ] **INF-05**: Intermediate datasets saved as .rds checkpoints between pipeline stages
-- [ ] **INF-06**: renv lockfile created for reproducible package management
+- [x] **INF-06**: renv lockfile created for reproducible package management
 
 ## v2 Requirements
 
@@ -120,7 +120,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IMP-01 | Phase 1 | Pending |
 | IMP-02 | Phase 1 | Pending |
 | IMP-03 | Phase 1 | Pending |
-| IMP-04 | Phase 1 | Pending |
+| IMP-04 | Phase 1 | Complete |
 | IMP-05 | Phase 1 | Pending |
 | CLN-01 | Phase 2 | Pending |
 | CLN-02 | Phase 2 | Pending |
@@ -158,12 +158,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STA-05 | Phase 4 | Pending |
 | STA-06 | Phase 4 | Pending |
 | STA-07 | Phase 4 | Pending |
-| INF-01 | Phase 1 | Pending |
-| INF-02 | Phase 1 | Pending |
-| INF-03 | Phase 1 | Pending |
-| INF-04 | Phase 1 | Pending |
+| INF-01 | Phase 1 | Complete |
+| INF-02 | Phase 1 | Complete |
+| INF-03 | Phase 1 | Complete |
+| INF-04 | Phase 1 | Complete |
 | INF-05 | Phase 1 | Pending |
-| INF-06 | Phase 1 | Pending |
+| INF-06 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 44 total

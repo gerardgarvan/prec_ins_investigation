@@ -36,7 +36,7 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project infrastructure (config.R, run_all.R, .gitignore, directory structure)
+- [x] 01-01-PLAN.md — Project infrastructure (config.R, run_all.R, .gitignore, directory structure)
 - [ ] 01-02-PLAN.md — Format translation (Formats.sas to R named lists with forensic duplicate resolution)
 - [ ] 01-03-PLAN.md — SAS data import (all V5 SAS7BDAT files, date conversion, label preservation, checkpoints)
 
