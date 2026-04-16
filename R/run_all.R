@@ -15,19 +15,18 @@ start_step <- 1
 # Per INF-01: numbered modular scripts, each performs single logical step
 scripts <- c(
   "01_formats.R",     # Translate Formats.sas to R factor definitions
-  "01_import.R"       # Import all V5 SAS7BDAT files
-  # Phase 2 scripts will be added here:
-  # "02_clean.R",     # Data cleaning and standardization
-  # "03_merge.R",     # Dataset merging and joining
+  "01_import.R",      # Import all V5 SAS7BDAT files
+  "02_clean.R",       # Data cleaning: encounter import, combine, payer/enc_type recoding
+  "02_merge.R"        # Data merging: encounter-dx-proc-provider joins with validation
   # Phase 3 scripts:
-  # "04_cohort.R",    # Cohort construction and exclusion criteria
-  # "05_exposure.R",  # Exposure variable derivation
-  # "06_outcomes.R",  # Outcome variable calculation
-  # "07_covariates.R",# Covariate processing
+  # "03_cohort.R",    # Cohort construction and exclusion criteria
+  # "03_exposure.R",  # Exposure variable derivation
+  # "03_outcomes.R",  # Outcome variable calculation
+  # "03_covariates.R",# Covariate processing
   # Phase 4 scripts:
-  # "08_table1.R",    # Descriptive statistics and Table 1
-  # "09_models.R",    # Regression models
-  # "10_output.R"     # Final tables and figures
+  # "04_table1.R",    # Descriptive statistics and Table 1
+  # "04_models.R",    # Regression models
+  # "04_output.R"     # Final tables and figures
 )
 
 message("========================================")
