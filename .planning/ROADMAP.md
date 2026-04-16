@@ -33,7 +33,12 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 4. File paths are parameterized in config files — no hardcoded paths in scripts
 5. Modular script structure exists (01_import.R, 01_formats.R, run_all.R) and executes without errors
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Project infrastructure (config.R, run_all.R, .gitignore, directory structure)
+- [ ] 01-02-PLAN.md — Format translation (Formats.sas to R named lists with forensic duplicate resolution)
+- [ ] 01-03-PLAN.md — SAS data import (all V5 SAS7BDAT files, date conversion, label preservation, checkpoints)
 
 ### Phase 2: Data Cleaning & Merging
 
@@ -91,7 +96,7 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Import & Format Translation | 0/0 | Not started | - |
+| 1. Data Import & Format Translation | 0/3 | Planned | - |
 | 2. Data Cleaning & Merging | 0/0 | Not started | - |
 | 3. Analytical Dataset Construction | 0/0 | Not started | - |
 | 4. Statistical Analysis & Output | 0/0 | Not started | - |
@@ -120,4 +125,4 @@ Linear dependency chain: each phase requires completion of previous phase. This 
 
 ---
 *Roadmap created: 2026-04-16*
-*Next: `/gsd:plan-phase 1`*
+*Phase 1 planned: 2026-04-16 (3 plans, 3 waves)*
