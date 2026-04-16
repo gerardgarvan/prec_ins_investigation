@@ -60,7 +60,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all CLN/MRG requirements)
 - [x] 02-02-PLAN.md — Encounter cleaning (02_clean.R: import, combine, payer/enc_type recoding, dx/proc concat)
-- [ ] 02-03-PLAN.md — Data merging (02_merge.R: encounter-dx-proc-provider joins with row count validation)
+- [x] 02-03-PLAN.md — Data merging (02_merge.R: encounter-dx-proc-provider joins with row count validation)
 - [ ] 02-04-PLAN.md — Pipeline integration (update run_all.R, full test suite verification)
 
 ### Phase 3: Analytical Dataset Construction
