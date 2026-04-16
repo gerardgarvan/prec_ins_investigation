@@ -15,12 +15,12 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 - [x] Translate SAS format definitions (Formats.sas) to R factor labels — *Validated in Phase 1: Data Import & Format Translation*
 - [x] Structure as modular R scripts (01_clean.R, 02_merge.R, etc.) with master runner script — *Validated in Phase 1: Data Import & Format Translation*
 - [x] Document all logic decisions and error fixes in code comments — *Validated in Phase 1: Data Import & Format Translation*
+- [x] Translate SAS data cleaning (encounter merging, insurance recoding, variable derivation) to tidyverse R — *Validated in Phase 2: Data Cleaning & Merging*
 
 ### Active
 
 - [ ] Forensically map the logic across all SAS file versions to determine the intended data processing pipeline
 - [ ] Identify and fix logic errors, conflicting approaches, and data quality issues in the original SAS code
-- [ ] Translate SAS data cleaning (encounter merging, insurance recoding, variable derivation) to tidyverse R
 - [ ] Translate cohort construction (valid enrollment, cancer diagnosis, follow-up periods) to R
 - [ ] Translate exposure variable creation: insurance change (pct_change_ins), treatment intensity, cancer site groups
 - [ ] Translate outcome variable creation: cancer-related visits, survivorship visits, non-acute care encounters, person-time calculation
@@ -87,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-16 after Phase 1 completion*
+*Last updated: 2026-04-16 after Phase 2 completion*
