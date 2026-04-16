@@ -10,7 +10,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Data Import
 
 - [ ] **IMP-01**: R code reads all required SAS7BDAT files using haven::read_sas() with correct encoding
-- [ ] **IMP-02**: All SAS format definitions from Formats.sas are translated to R factor levels with matching labels
+- [x] **IMP-02**: All SAS format definitions from Formats.sas are translated to R factor levels with matching labels
 - [ ] **IMP-03**: SAS date values convert correctly to R Date objects (validated against known dates)
 - [x] **IMP-04**: All file paths are parameterized in a config file using here::here() — no hardcoded paths
 - [ ] **IMP-05**: Variable labels from SAS datasets are preserved as R attributes
@@ -118,7 +118,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | IMP-01 | Phase 1 | Pending |
-| IMP-02 | Phase 1 | Pending |
+| IMP-02 | Phase 1 | Complete |
 | IMP-03 | Phase 1 | Pending |
 | IMP-04 | Phase 1 | Complete |
 | IMP-05 | Phase 1 | Pending |
