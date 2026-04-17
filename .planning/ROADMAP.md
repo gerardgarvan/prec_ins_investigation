@@ -13,7 +13,7 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 
 - [x] **Phase 1: Data Import & Format Translation** - Establish SAS-to-R data pipeline foundation with validated format conversion (completed 2026-04-16)
 - [x] **Phase 2: Data Cleaning & Merging** - Clean and merge encounter-level datasets with validated join logic (completed 2026-04-17)
-- [ ] **Phase 3: Analytical Dataset Construction** - Build study cohort with exposure, outcome, and covariate variables
+- [x] **Phase 3: Analytical Dataset Construction** - Build study cohort with exposure, outcome, and covariate variables (completed 2026-04-17)
 - [ ] **Phase 4: Statistical Analysis & Output** - Produce publication-ready tables and regression models
 
 ## Phase Details
@@ -80,14 +80,14 @@ Plans:
 5. Person-time calculation (days from first cancer dx to follow-up) produces totals within 1% of SAS sum
 6. Demographics, SDI, and RUCA variables recode to factor levels matching SAS PROC FREQ output
 
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 03-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all COH/EXP/OUT/COV requirements)
 - [x] 03-02-PLAN.md — Cohort construction (03_cohort.R: exclusion criteria, attrition tracking, CONSORT flowchart)
 - [x] 03-03-PLAN.md — Exposure variables (03_exposure.R: insurance change, treatment intensity, cancer site, chemo)
 - [x] 03-04-PLAN.md — Outcome variables (03_outcomes.R: visit type flags, visit counts, person-time)
-- [ ] 03-05-PLAN.md — Covariates and assembly (03_covariates.R: demographics, age, SDI, RUCA, final dataset, run_all.R)
+- [x] 03-05-PLAN.md — Covariates and assembly (03_covariates.R: demographics, age, SDI, RUCA, final dataset, run_all.R)
 
 ### Phase 4: Statistical Analysis & Output
 
@@ -112,7 +112,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Data Import & Format Translation | 4/4 | Complete | 2026-04-16 |
 | 2. Data Cleaning & Merging | 4/4 | Complete | 2026-04-17 |
-| 3. Analytical Dataset Construction | 1/5 | In Progress | - |
+| 3. Analytical Dataset Construction | 5/5 | Complete   | 2026-04-17 |
 | 4. Statistical Analysis & Output | 0/0 | Not started | - |
 
 ## Coverage

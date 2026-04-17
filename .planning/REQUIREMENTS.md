@@ -57,10 +57,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Covariate Processing
 
-- [ ] **COV-01**: Sex, race, and Hispanic ethnicity recoded with correct PCORnet CDM factor labels
-- [ ] **COV-02**: Age categories derived correctly (matching SAS age2 groupings: <15, 15-40, 40-54, 55-64, 65+)
-- [ ] **COV-03**: SDI score processed with correct formatting/categories
-- [ ] **COV-04**: RUCA classification processed with correct urban-rural categories
+- [x] **COV-01**: Sex, race, and Hispanic ethnicity recoded with correct PCORnet CDM factor labels
+- [x] **COV-02**: Age categories derived correctly (matching SAS age2 groupings: <15, 15-40, 40-54, 55-64, 65+)
+- [x] **COV-03**: SDI score processed with correct formatting/categories
+- [x] **COV-04**: RUCA classification processed with correct urban-rural categories
 
 ### Statistical Analysis
 
@@ -147,10 +147,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OUT-04 | Phase 3 | Complete |
 | OUT-05 | Phase 3 | Complete |
 | OUT-06 | Phase 3 | Complete |
-| COV-01 | Phase 3 | Pending |
-| COV-02 | Phase 3 | Pending |
-| COV-03 | Phase 3 | Pending |
-| COV-04 | Phase 3 | Pending |
+| COV-01 | Phase 3 | Complete |
+| COV-02 | Phase 3 | Complete |
+| COV-03 | Phase 3 | Complete |
+| COV-04 | Phase 3 | Complete |
 | STA-01 | Phase 4 | Pending |
 | STA-02 | Phase 4 | Pending |
 | STA-03 | Phase 4 | Pending |
