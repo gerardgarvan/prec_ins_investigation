@@ -83,7 +83,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all COH/EXP/OUT/COV requirements)
+- [x] 03-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all COH/EXP/OUT/COV requirements)
 - [ ] 03-02-PLAN.md — Cohort construction (03_cohort.R: exclusion criteria, attrition tracking, CONSORT flowchart)
 - [ ] 03-03-PLAN.md — Exposure variables (03_exposure.R: insurance change, treatment intensity, cancer site, chemo)
 - [ ] 03-04-PLAN.md — Outcome variables (03_outcomes.R: visit type flags, visit counts, person-time)
@@ -112,7 +112,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Data Import & Format Translation | 4/4 | Complete | 2026-04-16 |
 | 2. Data Cleaning & Merging | 4/4 | Complete | 2026-04-17 |
-| 3. Analytical Dataset Construction | 0/5 | Planned | - |
+| 3. Analytical Dataset Construction | 1/5 | In Progress | - |
 | 4. Statistical Analysis & Output | 0/0 | Not started | - |
 
 ## Coverage
