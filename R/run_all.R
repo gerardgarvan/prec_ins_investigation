@@ -17,12 +17,12 @@ scripts <- c(
   "01_formats.R",     # Translate Formats.sas to R factor definitions
   "01_import.R",      # Import all V5 SAS7BDAT files
   "02_clean.R",       # Data cleaning: encounter import, combine, payer/enc_type recoding
-  "02_merge.R"        # Data merging: encounter-dx-proc-provider joins with validation
+  "02_merge.R",       # Data merging: encounter-dx-proc-provider joins with validation
   # Phase 3 scripts:
-  # "03_cohort.R",    # Cohort construction and exclusion criteria
-  # "03_exposure.R",  # Exposure variable derivation
-  # "03_outcomes.R",  # Outcome variable calculation
-  # "03_covariates.R",# Covariate processing
+  "03_cohort.R",      # Cohort construction: exclusion criteria, attrition, CONSORT
+  "03_exposure.R",    # Exposure variables: insurance change, treatment intensity, cancer site, chemo
+  "03_outcomes.R",    # Outcome variables: visit counts, person-time
+  "03_covariates.R"   # Covariate processing, final analytical dataset assembly
   # Phase 4 scripts:
   # "04_table1.R",    # Descriptive statistics and Table 1
   # "04_models.R",    # Regression models
