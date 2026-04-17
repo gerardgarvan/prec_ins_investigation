@@ -24,7 +24,7 @@
 # Section 1 -- Setup
 # ========================================
 
-source(here::here("R", "config.R"))
+source("/home/ggarvan/prec_ins_investigation/R/config.R")
 library(tidyverse)
 library(janitor)
 library(assertr)

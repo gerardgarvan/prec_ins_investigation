@@ -4,14 +4,15 @@
 # Per INF-02: Executes full pipeline from data import to final outputs
 # Usage: source("R/run_all.R") or Rscript R/run_all.R
 
-library(here)
+# Project root — hardcoded for HiPerGator reliability
+project_root <- "/home/ggarvan/prec_ins_investigation"
 
 # Change start_step to resume from a later step (leveraging .rds checkpoints per D-08)
 # Example: start_step <- 2 skips format translation, loads from checkpoint
 start_step <- 1
 
 # Pipeline scripts in execution order
-# Per D-04: paths constructed via here::here(), no hardcoded paths
+# Per D-04: paths constructed via file.path(), hardcoded project root
 # Per INF-01: numbered modular scripts, each performs single logical step
 scripts <- c(
   "01_formats.R",     # Translate Formats.sas to R factor definitions
@@ -41,7 +42,7 @@ message("========================================")
 # tryCatch provides graceful error handling with resume guidance
 for (i in seq_along(scripts)) {
   if (i >= start_step) {
-    script_path <- here("R", scripts[i])
+    script_path <- file.path(project_root, "R", scripts[i])
     if (!file.exists(script_path)) {
       message("WARNING: Script not found, skipping: ", scripts[i])
       next

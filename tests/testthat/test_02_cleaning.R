@@ -4,7 +4,7 @@
 
 library(testthat)
 library(dplyr)
-source(here::here("tests", "testthat", "helper-fixtures.R"))
+source("/home/ggarvan/prec_ins_investigation/tests/testthat/helper-fixtures.R")
 
 # ==============================================================================
 # CLN-01: Variable names already standardized at import (verify no uppercase)

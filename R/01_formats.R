@@ -13,7 +13,7 @@
 # FORENSIC NOTE: Block 4 (lines 2161+) is definitive for all duplicated formats.
 # Study-specific formats at end (lines 2414-2495) are unique (no duplicates).
 
-source(here::here("R", "config.R"))
+source("/home/ggarvan/prec_ins_investigation/R/config.R")
 library(tidyverse)
 
 # Master format list (per D-03: single grep-friendly object)

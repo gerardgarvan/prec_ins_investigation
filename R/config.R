@@ -5,19 +5,20 @@
 
 # SAS BUG FIX: SAS code uses confusing library aliases (v3 for Data_v5). See note below.
 
-library(here)
+# Project root — hardcoded for HiPerGator reliability
+project_root <- "/home/ggarvan/prec_ins_investigation"
 
-# Data directory paths using here::here()
+# Data directory paths
 # Where SAS7BDAT files live
-data_dir_raw <- here("data", "raw")
+data_dir_raw <- file.path(project_root, "data", "raw")
 
 # Where .rds checkpoints go
-data_dir_processed <- here("data", "processed")
+data_dir_processed <- file.path(project_root, "data", "processed")
 
 # Output directory paths
-output_dir <- here("output")
-output_dir_tables <- here("output", "tables")
-output_dir_figures <- here("output", "figures")
+output_dir <- file.path(project_root, "output")
+output_dir_tables <- file.path(project_root, "output", "tables")
+output_dir_figures <- file.path(project_root, "output", "figures")
 
 # SAS encoding parameter (per Research pitfall 6)
 # Default for clinical data; change to "UTF-8" if text corruption detected
@@ -35,4 +36,4 @@ dir.create(output_dir_figures, recursive = TRUE, showWarnings = FALSE)
 #   SAS "libname dx" alias points to Dx directory
 #   R config uses clear names: data_dir_raw (= V5 data), no ambiguous aliases
 
-message("Config loaded. Project root: ", here())
+message("Config loaded. Project root: ", project_root)
