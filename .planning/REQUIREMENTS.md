@@ -48,12 +48,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Outcome Variables
 
-- [ ] **OUT-01**: Non-acute care encounters (Enc_nonacute_care) correctly flagged using ENC_TYPE in ('AV','TH')
-- [ ] **OUT-02**: Cancer-related visits correctly require non-acute care + any_reportable_cancer diagnosis
-- [ ] **OUT-03**: Cancer visit with provider correctly requires cancer-related visit + cancer provider specialty
-- [ ] **OUT-04**: Survivorship visits correctly require non-acute care + cancer provider + ICD personal treatment history codes
-- [ ] **OUT-05**: Person-time (days from first cancer dx to follow-up) calculated correctly with appropriate censoring
-- [ ] **OUT-06**: Visit counts are aggregated per patient for use as count outcomes in regression
+- [x] **OUT-01**: Non-acute care encounters (Enc_nonacute_care) correctly flagged using ENC_TYPE in ('AV','TH')
+- [x] **OUT-02**: Cancer-related visits correctly require non-acute care + any_reportable_cancer diagnosis
+- [x] **OUT-03**: Cancer visit with provider correctly requires cancer-related visit + cancer provider specialty
+- [x] **OUT-04**: Survivorship visits correctly require non-acute care + cancer provider + ICD personal treatment history codes
+- [x] **OUT-05**: Person-time (days from first cancer dx to follow-up) calculated correctly with appropriate censoring
+- [x] **OUT-06**: Visit counts are aggregated per patient for use as count outcomes in regression
 
 ### Covariate Processing
 
@@ -141,12 +141,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXP-02 | Phase 3 | Complete |
 | EXP-03 | Phase 3 | Complete |
 | EXP-04 | Phase 3 | Complete |
-| OUT-01 | Phase 3 | Pending |
-| OUT-02 | Phase 3 | Pending |
-| OUT-03 | Phase 3 | Pending |
-| OUT-04 | Phase 3 | Pending |
-| OUT-05 | Phase 3 | Pending |
-| OUT-06 | Phase 3 | Pending |
+| OUT-01 | Phase 3 | Complete |
+| OUT-02 | Phase 3 | Complete |
+| OUT-03 | Phase 3 | Complete |
+| OUT-04 | Phase 3 | Complete |
+| OUT-05 | Phase 3 | Complete |
+| OUT-06 | Phase 3 | Complete |
 | COV-01 | Phase 3 | Pending |
 | COV-02 | Phase 3 | Pending |
 | COV-03 | Phase 3 | Pending |
