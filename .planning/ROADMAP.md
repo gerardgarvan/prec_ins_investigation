@@ -104,7 +104,12 @@ Plans:
 4. Negative binomial models fit when overdispersion detected and match SAS NB regression results
 5. Publication-ready formatted tables export to .docx format without manual editing required
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all STA requirements)
+- [ ] 04-02-PLAN.md — Descriptive statistics (04_table1.R: Table 1, bivariate tests, frequency tables, Word export)
+- [ ] 04-03-PLAN.md — Regression models (04_regression.R: Poisson/NB models, diagnostics, IRR tables, run_all.R integration)
 
 ## Progress
 
@@ -113,7 +118,7 @@ Plans:
 | 1. Data Import & Format Translation | 4/4 | Complete | 2026-04-16 |
 | 2. Data Cleaning & Merging | 4/4 | Complete | 2026-04-17 |
 | 3. Analytical Dataset Construction | 5/5 | Complete   | 2026-04-17 |
-| 4. Statistical Analysis & Output | 0/0 | Not started | - |
+| 4. Statistical Analysis & Output | 0/3 | Planned | - |
 
 ## Coverage
 
@@ -143,3 +148,4 @@ Linear dependency chain: each phase requires completion of previous phase. This 
 *Phase 1 gap closure: 2026-04-16 (1 plan added for IMP-04 here::here fix)*
 *Phase 2 planned: 2026-04-16 (4 plans, 4 waves)*
 *Phase 3 planned: 2026-04-17 (5 plans, 5 waves)*
+*Phase 4 planned: 2026-04-17 (3 plans, 3 waves)*
