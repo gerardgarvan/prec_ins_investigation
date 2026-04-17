@@ -33,11 +33,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Cohort Construction
 
-- [ ] **COH-01**: Valid enrollment criteria filter patients correctly (matching SAS valid_id logic)
-- [ ] **COH-02**: Cancer diagnosis identification uses correct ICD-9/ICD-10 codes for reportable cancers
-- [ ] **COH-03**: Sequential exclusion criteria are applied with patient counts logged at each step
-- [ ] **COH-04**: CONSORT-style exclusion flowchart is generated as a publication-ready figure
-- [ ] **COH-05**: Baseline (first cancer diagnosis date) is correctly identified per patient
+- [x] **COH-01**: Valid enrollment criteria filter patients correctly (matching SAS valid_id logic)
+- [x] **COH-02**: Cancer diagnosis identification uses correct ICD-9/ICD-10 codes for reportable cancers
+- [x] **COH-03**: Sequential exclusion criteria are applied with patient counts logged at each step
+- [x] **COH-04**: CONSORT-style exclusion flowchart is generated as a publication-ready figure
+- [x] **COH-05**: Baseline (first cancer diagnosis date) is correctly identified per patient
 
 ### Exposure Variables
 
@@ -132,11 +132,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MRG-02 | Phase 2 | Complete |
 | MRG-03 | Phase 2 | Complete |
 | MRG-04 | Phase 2 | Complete |
-| COH-01 | Phase 3 | Pending |
-| COH-02 | Phase 3 | Pending |
-| COH-03 | Phase 3 | Pending |
-| COH-04 | Phase 3 | Pending |
-| COH-05 | Phase 3 | Pending |
+| COH-01 | Phase 3 | Complete |
+| COH-02 | Phase 3 | Complete |
+| COH-03 | Phase 3 | Complete |
+| COH-04 | Phase 3 | Complete |
+| COH-05 | Phase 3 | Complete |
 | EXP-01 | Phase 3 | Pending |
 | EXP-02 | Phase 3 | Pending |
 | EXP-03 | Phase 3 | Pending |

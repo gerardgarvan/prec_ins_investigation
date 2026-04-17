@@ -84,7 +84,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all COH/EXP/OUT/COV requirements)
-- [ ] 03-02-PLAN.md — Cohort construction (03_cohort.R: exclusion criteria, attrition tracking, CONSORT flowchart)
+- [x] 03-02-PLAN.md — Cohort construction (03_cohort.R: exclusion criteria, attrition tracking, CONSORT flowchart)
 - [ ] 03-03-PLAN.md — Exposure variables (03_exposure.R: insurance change, treatment intensity, cancer site, chemo)
 - [ ] 03-04-PLAN.md — Outcome variables (03_outcomes.R: visit type flags, visit counts, person-time)
 - [ ] 03-05-PLAN.md — Covariates and assembly (03_covariates.R: demographics, age, SDI, RUCA, final dataset, run_all.R)
