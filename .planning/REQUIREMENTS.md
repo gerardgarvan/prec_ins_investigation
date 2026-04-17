@@ -66,10 +66,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **STA-01**: Table 1 shows patient characteristics stratified by exposure group(s) with appropriate statistics
 - [x] **STA-02**: Bivariate tests (chi-square for categorical, Wilcoxon rank sum for continuous) compare groups correctly
-- [ ] **STA-03**: Poisson regression models fit visit rate outcomes with log(person-time) offset
-- [ ] **STA-04**: Negative binomial regression models fit when overdispersion detected
-- [ ] **STA-05**: Regression tables show IRRs/rate ratios, 95% CIs, and p-values
-- [ ] **STA-06**: Model diagnostics include overdispersion test and goodness-of-fit assessment
+- [x] **STA-03**: Poisson regression models fit visit rate outcomes with log(person-time) offset
+- [x] **STA-04**: Negative binomial regression models fit when overdispersion detected
+- [x] **STA-05**: Regression tables show IRRs/rate ratios, 95% CIs, and p-values
+- [x] **STA-06**: Model diagnostics include overdispersion test and goodness-of-fit assessment
 - [x] **STA-07**: Frequency/cross-tabulation tables generated for key variable distributions
 
 ### Pipeline Infrastructure
@@ -153,10 +153,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COV-04 | Phase 3 | Complete |
 | STA-01 | Phase 4 | Complete |
 | STA-02 | Phase 4 | Complete |
-| STA-03 | Phase 4 | Pending |
-| STA-04 | Phase 4 | Pending |
-| STA-05 | Phase 4 | Pending |
-| STA-06 | Phase 4 | Pending |
+| STA-03 | Phase 4 | Complete |
+| STA-04 | Phase 4 | Complete |
+| STA-05 | Phase 4 | Complete |
+| STA-06 | Phase 4 | Complete |
 | STA-07 | Phase 4 | Complete |
 | INF-01 | Phase 1 | Complete |
 | INF-02 | Phase 1 | Complete |
