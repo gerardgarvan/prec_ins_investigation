@@ -107,7 +107,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all STA requirements)
+- [x] 04-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all STA requirements)
 - [ ] 04-02-PLAN.md — Descriptive statistics (04_table1.R: Table 1, bivariate tests, frequency tables, Word export)
 - [ ] 04-03-PLAN.md — Regression models (04_regression.R: Poisson/NB models, diagnostics, IRR tables, run_all.R integration)
 
