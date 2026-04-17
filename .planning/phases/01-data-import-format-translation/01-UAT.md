@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 01-data-import-format-translation
 source: 01-01-SUMMARY.md, 01-02-SUMMARY.md, 01-03-SUMMARY.md
 started: 2026-04-16T12:00:00Z
@@ -72,16 +72,22 @@ blocked: 0
   reason: "User reported: no it does not"
   severity: major
   test: 1
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "config.R uses hardcoded Unix path '/home/ggarvan/prec_ins_investigation' (line 9) and file.path() instead of here::here(). sas_encoding and dir.create() are correct but all paths derive from the hardcoded root."
+  artifacts:
+    - path: "R/config.R"
+      issue: "Line 9 hardcodes project_root as /home/ggarvan/prec_ins_investigation; lines 13-21 use file.path(project_root, ...) instead of here::here()"
+  missing:
+    - "Replace hardcoded project_root with here::here() for all path definitions"
+    - "Remove line 9 hardcoded path"
   debug_session: ""
 - truth: "R/01_formats.R stores treatment format as sas_formats$treatment with a comment noting the original SAS typo '$treament' was corrected"
-  status: failed
+  status: resolved
   reason: "User reported: i don't see a comment about any typo"
   severity: minor
   test: 6
-  root_cause: ""
-  artifacts: []
+  root_cause: "Comment IS present at lines 712-714. User may have missed it. Line 714 reads: '# NOTE: SAS source has typo $treament - R uses corrected treatment'"
+  artifacts:
+    - path: "R/01_formats.R"
+      issue: "No code issue — comment exists at lines 712-714"
   missing: []
   debug_session: ""
