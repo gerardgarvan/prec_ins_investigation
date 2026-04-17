@@ -33,12 +33,13 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 4. File paths are parameterized in config files — no hardcoded paths in scripts
 5. Modular script structure exists (01_import.R, 01_formats.R, run_all.R) and executes without errors
 
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
 - [x] 01-01-PLAN.md — Project infrastructure (config.R, run_all.R, .gitignore, directory structure)
 - [x] 01-02-PLAN.md — Format translation (Formats.sas to R named lists with forensic duplicate resolution)
 - [x] 01-03-PLAN.md — SAS data import (all V5 SAS7BDAT files, date conversion, label preservation, checkpoints)
+- [ ] 01-04-PLAN.md — Gap closure: replace hardcoded paths with here::here() across all R scripts (IMP-04)
 
 ### Phase 2: Data Cleaning & Merging
 
@@ -102,7 +103,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Import & Format Translation | 3/3 | Complete | 2026-04-16 |
+| 1. Data Import & Format Translation | 3/4 | Gap closure needed | - |
 | 2. Data Cleaning & Merging | 1/4 | In Progress|  |
 | 3. Analytical Dataset Construction | 0/0 | Not started | - |
 | 4. Statistical Analysis & Output | 0/0 | Not started | - |
@@ -132,4 +133,5 @@ Linear dependency chain: each phase requires completion of previous phase. This 
 ---
 *Roadmap created: 2026-04-16*
 *Phase 1 planned: 2026-04-16 (3 plans, 3 waves)*
+*Phase 1 gap closure: 2026-04-16 (1 plan added for IMP-04 here::here fix)*
 *Phase 2 planned: 2026-04-16 (4 plans, 4 waves)*
