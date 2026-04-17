@@ -22,11 +22,10 @@ scripts <- c(
   "03_cohort.R",      # Cohort construction: exclusion criteria, attrition, CONSORT
   "03_exposure.R",    # Exposure variables: insurance change, treatment intensity, cancer site, chemo
   "03_outcomes.R",    # Outcome variables: visit counts, person-time
-  "03_covariates.R"   # Covariate processing, final analytical dataset assembly
+  "03_covariates.R",  # Covariate processing, final analytical dataset assembly
   # Phase 4 scripts:
-  # "04_table1.R",    # Descriptive statistics and Table 1
-  # "04_models.R",    # Regression models
-  # "04_output.R"     # Final tables and figures
+  "04_table1.R",      # Descriptive statistics, Table 1, frequency tables (STA-01, STA-02, STA-07)
+  "04_regression.R"   # Poisson/NB regression models, diagnostics, export (STA-03 through STA-06)
 )
 
 message("========================================")
