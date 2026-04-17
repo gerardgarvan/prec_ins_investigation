@@ -8,8 +8,8 @@ progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 16
-  completed_plans: 14
-  percent: 88
+  completed_plans: 15
+  percent: 94
 ---
 
 # State: Precision Cancer Survivorship — SAS-to-R Conversion
@@ -29,11 +29,11 @@ progress:
 ## Current Position
 
 Phase: 04 (statistical-analysis-output) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 **Progress:**
 
-[█████████░] 88%
+[█████████░] 94%
 
 **Phase Progress:**
 
@@ -133,9 +133,17 @@ Plan: 2 of 3
 
 | Phase 04 P01 | 185 | 2 tasks | 3 files |
 
-- [Phase 04]: Used mock_p4_* prefix for Phase 4 fixtures to avoid collision with Phase 2/3
-- [Phase 04]: 8-patient fixture design with 4 change_ins=1, 4 change_ins=0 for balanced statistical comparisons
-- [Phase 04]: Embedded expected values in fixture comments for Table 1, bivariate tests, and Poisson regression reference
+- [Phase 04-01]: Used mock_p4_* prefix for Phase 4 fixtures to avoid collision with Phase 2/3
+- [Phase 04-01]: 8-patient fixture design with 4 change_ins=1, 4 change_ins=0 for balanced statistical comparisons
+- [Phase 04-01]: Embedded expected values in fixture comments for Table 1, bivariate tests, and Poisson regression reference
+
+| Phase 04 P02 | 142 | 2 tasks | 2 files |
+
+- [Phase 04-02]: Used gtsummary::tbl_summary(by=change_ins) for automatic stratification and variable type detection
+- [Phase 04-02]: Applied chi-square (chisq.test.no.correct) for categorical and Wilcoxon (wilcox.test) for continuous per SAS defaults
+- [Phase 04-02]: Converted character codes to labeled factors for publication-ready output (Female/Male, White/AA/Other, etc.)
+- [Phase 04-02]: Used missing='no' in tbl_summary because complete-case dataset has no missing values
+- [Phase 04-02]: Added output_dir_diagnostics to config.R for Plan 03 regression diagnostic output
 
 ### Active Todos
 
@@ -223,6 +231,7 @@ None identified.
 | 2026-04-16 | Plans 01-01 through 01-04 executed | Phase 1 complete (Data Import & Format Translation) |
 | 2026-04-17 | Plans 02-01 through 02-04 executed | Phase 2 complete (Data Cleaning & Merging) |
 | 2026-04-17 | Plan 03-01 executed | Phase 3 test infrastructure created (15-patient fixtures, 19 tests) |
+| 2026-04-17 | Plan 04-02 executed | Table 1 and frequency tables script created (253 lines, 3 Word exports) |
 
 ---
 *State tracking started: 2026-04-16*

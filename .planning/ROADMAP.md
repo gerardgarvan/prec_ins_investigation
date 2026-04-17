@@ -108,7 +108,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all STA requirements)
-- [ ] 04-02-PLAN.md — Descriptive statistics (04_table1.R: Table 1, bivariate tests, frequency tables, Word export)
+- [x] 04-02-PLAN.md — Descriptive statistics (04_table1.R: Table 1, bivariate tests, frequency tables, Word export)
 - [ ] 04-03-PLAN.md — Regression models (04_regression.R: Poisson/NB models, diagnostics, IRR tables, run_all.R integration)
 
 ## Progress
@@ -118,7 +118,7 @@ Plans:
 | 1. Data Import & Format Translation | 4/4 | Complete | 2026-04-16 |
 | 2. Data Cleaning & Merging | 4/4 | Complete | 2026-04-17 |
 | 3. Analytical Dataset Construction | 5/5 | Complete   | 2026-04-17 |
-| 4. Statistical Analysis & Output | 0/3 | Planned | - |
+| 4. Statistical Analysis & Output | 2/3 | In Progress | - |
 
 ## Coverage
 
