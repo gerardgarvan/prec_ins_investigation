@@ -11,8 +11,8 @@ Produce a trustworthy, readable R pipeline where every analytical step has clear
 
 ## Phases
 
-- [ ] **Phase 1: Data Import & Format Translation** - Establish SAS-to-R data pipeline foundation with validated format conversion
-- [ ] **Phase 2: Data Cleaning & Merging** - Clean and merge encounter-level datasets with validated join logic
+- [x] **Phase 1: Data Import & Format Translation** - Establish SAS-to-R data pipeline foundation with validated format conversion (completed 2026-04-16)
+- [x] **Phase 2: Data Cleaning & Merging** - Clean and merge encounter-level datasets with validated join logic (completed 2026-04-17)
 - [ ] **Phase 3: Analytical Dataset Construction** - Build study cohort with exposure, outcome, and covariate variables
 - [ ] **Phase 4: Statistical Analysis & Output** - Produce publication-ready tables and regression models
 
@@ -56,7 +56,7 @@ Plans:
 4. Encounter-diagnosis-procedure-insurance merges produce row counts within 1% of SAS JOIN output
 5. Data quality assertions run after all merges and flag any unexpected missing values or range violations
 
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans executed
 
 Plans:
 - [x] 02-01-PLAN.md — Test infrastructure (Wave 0 fixtures + test scaffolds for all CLN/MRG requirements)
@@ -103,8 +103,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Import & Format Translation | 3/4 | Gap closure needed | - |
-| 2. Data Cleaning & Merging | 1/4 | In Progress|  |
+| 1. Data Import & Format Translation | 4/4 | Complete | 2026-04-16 |
+| 2. Data Cleaning & Merging | 4/4 | Complete | 2026-04-17 |
 | 3. Analytical Dataset Construction | 0/0 | Not started | - |
 | 4. Statistical Analysis & Output | 0/0 | Not started | - |
 
