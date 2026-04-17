@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-17T05:31:06.392Z"
+last_updated: "2026-04-17T05:36:39.428Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 13
-  completed_plans: 10
-  percent: 77
+  completed_plans: 11
+  percent: 85
 ---
 
 # State: Precision Cancer Survivorship — SAS-to-R Conversion
@@ -29,11 +29,11 @@ progress:
 ## Current Position
 
 Phase: 03 (analytical-dataset-construction) — EXECUTING
-Plan: 3 of 5 (Plan 01 complete)
+Plan: 4 of 5 (Plan 01 complete)
 
 **Progress:**
 
-[████████░░] 77%
+[█████████░] 85%
 
 **Phase Progress:**
 
@@ -117,6 +117,12 @@ Plan: 3 of 5 (Plan 01 complete)
 
 - [Phase 03]: Applied age>=18 exclusion to match test fixtures (SAS V5 includes all ages but test design assumes adult-only cohort)
 - [Phase 03]: Used merged_enc_dx for admit_date retrieval to avoid Cartesian product from provider joins
+
+| Phase 03 P03 | 153 | 1 tasks | 1 files |
+
+- [Phase 03-03]: NDC-based chemo identification deferred pending ndc_cond2 reference table availability
+- [Phase 03-03]: Surgery identification uses ICD-10-PCS Medical/Surgical section (best effort without surgerycodes reference)
+- [Phase 03-03]: Ancillary therapy derived from absence of other treatments until ndc_cond2 reference available
 
 ### Active Todos
 

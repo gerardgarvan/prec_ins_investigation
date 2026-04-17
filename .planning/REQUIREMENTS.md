@@ -41,10 +41,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Exposure Variables
 
-- [ ] **EXP-01**: Insurance change variable (pct_change_ins) calculated correctly from first cancer payer to follow-up payer
-- [ ] **EXP-02**: Treatment intensity derived from SCT, radiation, surgery, and chemotherapy data matching SAS logic
-- [ ] **EXP-03**: Cancer site groups (group_site) created with correct ICD code-to-site mapping
-- [ ] **EXP-04**: Chemotherapy identification uses correct NDC codes and procedure codes
+- [x] **EXP-01**: Insurance change variable (pct_change_ins) calculated correctly from first cancer payer to follow-up payer
+- [x] **EXP-02**: Treatment intensity derived from SCT, radiation, surgery, and chemotherapy data matching SAS logic
+- [x] **EXP-03**: Cancer site groups (group_site) created with correct ICD code-to-site mapping
+- [x] **EXP-04**: Chemotherapy identification uses correct NDC codes and procedure codes
 
 ### Outcome Variables
 
@@ -137,10 +137,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COH-03 | Phase 3 | Complete |
 | COH-04 | Phase 3 | Complete |
 | COH-05 | Phase 3 | Complete |
-| EXP-01 | Phase 3 | Pending |
-| EXP-02 | Phase 3 | Pending |
-| EXP-03 | Phase 3 | Pending |
-| EXP-04 | Phase 3 | Pending |
+| EXP-01 | Phase 3 | Complete |
+| EXP-02 | Phase 3 | Complete |
+| EXP-03 | Phase 3 | Complete |
+| EXP-04 | Phase 3 | Complete |
 | OUT-01 | Phase 3 | Pending |
 | OUT-02 | Phase 3 | Pending |
 | OUT-03 | Phase 3 | Pending |
