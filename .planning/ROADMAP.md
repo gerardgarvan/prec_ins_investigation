@@ -39,7 +39,7 @@ Plans:
 - [x] 01-01-PLAN.md — Project infrastructure (config.R, run_all.R, .gitignore, directory structure)
 - [x] 01-02-PLAN.md — Format translation (Formats.sas to R named lists with forensic duplicate resolution)
 - [x] 01-03-PLAN.md — SAS data import (all V5 SAS7BDAT files, date conversion, label preservation, checkpoints)
-- [ ] 01-04-PLAN.md — Gap closure: replace hardcoded paths with here::here() across all R scripts (IMP-04)
+- [x] 01-04-PLAN.md — Gap closure: replace hardcoded paths with here::here() across all R scripts (IMP-04)
 
 ### Phase 2: Data Cleaning & Merging
 
