@@ -35,7 +35,8 @@
 # SAS BUG FIX: SAS code uses "v3" alias for Data_v5 directory (confusing).
 # R config uses clear name: data_dir_raw. See config.R for documentation.
 
-source("/home/ggarvan/prec_ins_investigation/R/config.R")
+library(here)
+source(here::here("R", "config.R"))
 library(haven)
 library(tidyverse)
 library(janitor)
