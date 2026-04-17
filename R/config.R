@@ -18,6 +18,7 @@ data_dir_processed <- here::here("data", "processed")
 output_dir <- here::here("output")
 output_dir_tables <- here::here("output", "tables")
 output_dir_figures <- here::here("output", "figures")
+output_dir_diagnostics <- here::here("output", "diagnostics")
 
 # SAS encoding parameter (per Research pitfall 6)
 # Default for clinical data; change to "UTF-8" if text corruption detected
@@ -28,6 +29,7 @@ dir.create(data_dir_raw, recursive = TRUE, showWarnings = FALSE)
 dir.create(data_dir_processed, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_tables, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_figures, recursive = TRUE, showWarnings = FALSE)
+dir.create(output_dir_diagnostics, recursive = TRUE, showWarnings = FALSE)
 
 # NOTE: SAS library alias confusion (per D-10, Research pitfall 4):
 #   SAS "libname v3" alias actually points to Data_v5 directory
