@@ -126,10 +126,10 @@ save_checkpoint <- function(obj, name) {
 demo <- import_sas("demographic_mobley_v5.sas7bdat", description = "Patient demographics")
 save_checkpoint(demo, "demo"); rm(demo); gc(verbose = FALSE)
 
-enroll <- import_sas("Enrollment_mobley_v5.sas7bdat", description = "Patient enrollment periods")
+enroll <- import_sas("enrollment_mobley_v5.sas7bdat", description = "Patient enrollment periods")
 save_checkpoint(enroll, "enroll"); rm(enroll); gc(verbose = FALSE)
 
-address <- import_sas("Address_history_mobley_v5.sas7bdat", description = "Address history for RUCA/SDI linkage")
+address <- import_sas("address_history_mobley_v5.sas7bdat", description = "Address history for RUCA/SDI linkage")
 save_checkpoint(address, "address"); rm(address); gc(verbose = FALSE)
 
 # GROUP 2: Diagnosis data (7 parts — SAS concatenates with SET statement)
