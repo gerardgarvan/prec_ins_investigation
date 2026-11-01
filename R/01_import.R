@@ -125,16 +125,21 @@ address <- import_sas("Address_history_mobley_v5.sas7bdat",
 # R equivalent: Import individually, then bind_rows() in Phase 2
 # ============================================================
 
-dx_parts <- list()
+# Stream-combine: read one part at a time to avoid holding all 7 in memory simultaneously
+dx_combined <- NULL
+dx_parts_loaded <- 0
 for (i in 1:7) {
   filename <- paste0("diagnosis_mobley", i, "_v5.sas7bdat")
-  dx_parts[[i]] <- import_sas(filename,
-                               description = paste("Diagnosis part", i, "of 7"))
+  part <- import_sas(filename, description = paste("Diagnosis part", i, "of 7"))
+  if (!is.null(part)) {
+    dx_combined <- bind_rows(dx_combined, part)
+    dx_parts_loaded <- dx_parts_loaded + 1
+    rm(part); gc(verbose = FALSE)
+  }
 }
-# Remove any NULL entries (missing files)
-dx_parts <- purrr::compact(dx_parts)
-if (length(dx_parts) > 0) {
-  message("  Diagnosis parts loaded: ", length(dx_parts), "/7")
+if (!is.null(dx_combined)) {
+  message("  Diagnosis parts combined: ", dx_parts_loaded, "/7 (",
+          format(nrow(dx_combined), big.mark = ","), " total rows)")
 }
 
 # ============================================================
@@ -186,14 +191,20 @@ proc_files <- c(
   "procedures4_mobley_v5.sas7bdat"  # NOTE: naming inconsistency in part 4
 )
 
-proc_parts <- list()
+# Stream-combine: read one part at a time to avoid holding all 4 in memory simultaneously
+proc_combined <- NULL
+proc_parts_loaded <- 0
 for (i in seq_along(proc_files)) {
-  proc_parts[[i]] <- import_sas(proc_files[i],
-                                 description = paste("Procedures part", i, "of 4"))
+  part <- import_sas(proc_files[i], description = paste("Procedures part", i, "of 4"))
+  if (!is.null(part)) {
+    proc_combined <- bind_rows(proc_combined, part)
+    proc_parts_loaded <- proc_parts_loaded + 1
+    rm(part); gc(verbose = FALSE)
+  }
 }
-proc_parts <- purrr::compact(proc_parts)
-if (length(proc_parts) > 0) {
-  message("  Procedure parts loaded: ", length(proc_parts), "/4")
+if (!is.null(proc_combined)) {
+  message("  Procedure parts combined: ", proc_parts_loaded, "/4 (",
+          format(nrow(proc_combined), big.mark = ","), " total rows)")
 }
 
 # ============================================================
@@ -238,12 +249,10 @@ save_checkpoint(demo, "demo")
 save_checkpoint(enroll, "enroll")
 save_checkpoint(address, "address")
 
-# Diagnosis parts (save as list for Phase 2 to bind_rows)
-if (length(dx_parts) > 0) {
-  saveRDS(dx_parts, file.path(data_dir_processed, "01_imported_dx_parts.rds"))
-  total_dx_rows <- sum(purrr::map_int(dx_parts, nrow))
-  message("  Saved: dx_parts.rds (", length(dx_parts), " parts, ",
-          format(total_dx_rows, big.mark = ","), " total rows)")
+# Diagnosis (already combined during import to minimise peak memory)
+if (!is.null(dx_combined)) {
+  saveRDS(dx_combined, file.path(data_dir_processed, "01_imported_dx_combined.rds"))
+  message("  Saved: dx_combined.rds (", format(nrow(dx_combined), big.mark = ","), " rows)")
 }
 
 # Provider data
@@ -256,12 +265,10 @@ save_checkpoint(ruca, "ruca")
 # Dispensing
 save_checkpoint(dispensing, "dispensing")
 
-# Procedure parts (save as list)
-if (length(proc_parts) > 0) {
-  saveRDS(proc_parts, file.path(data_dir_processed, "01_imported_proc_parts.rds"))
-  total_proc_rows <- sum(purrr::map_int(proc_parts, nrow))
-  message("  Saved: proc_parts.rds (", length(proc_parts), " parts, ",
-          format(total_proc_rows, big.mark = ","), " total rows)")
+# Procedures (already combined during import to minimise peak memory)
+if (!is.null(proc_combined)) {
+  saveRDS(proc_combined, file.path(data_dir_processed, "01_imported_proc_combined.rds"))
+  message("  Saved: proc_combined.rds (", format(nrow(proc_combined), big.mark = ","), " rows)")
 }
 
 # ICD reference
@@ -301,8 +308,8 @@ validate_date_columns <- function(df, name, expected_date_cols) {
 validate_date_columns(demo, "demo", c("BIRTH_DATE"))
 validate_date_columns(enroll, "enroll", c("ENR_START_DATE", "ENR_END_DATE"))
 validate_date_columns(address, "address", c("ADDRESS_PERIOD_START", "ADDRESS_PERIOD_END"))
-if (length(dx_parts) > 0) {
-  validate_date_columns(dx_parts[[1]], "dx_parts[[1]]", c("ADMIT_DATE", "DX_DATE"))
+if (!is.null(dx_combined)) {
+  validate_date_columns(dx_combined, "dx_combined", c("ADMIT_DATE", "DX_DATE"))
 }
 
 # ============================================================
@@ -324,7 +331,7 @@ message("\nLabel preservation report:")
 report_labels(demo, "demo")
 report_labels(enroll, "enroll")
 report_labels(address, "address")
-if (length(dx_parts) > 0) report_labels(dx_parts[[1]], "dx_parts[[1]]")
+if (!is.null(dx_combined)) report_labels(dx_combined, "dx_combined")
 report_labels(provider, "provider")
 report_labels(dispensing, "dispensing")
 
@@ -334,10 +341,10 @@ message("Checkpoints saved to: ", data_dir_processed)
 message("========================================")
 message("\nIMPORTED DATASETS SUMMARY:")
 message("  Core: demo, enroll, address")
-message("  Diagnosis: ", length(dx_parts), " parts")
+message("  Diagnosis: ", ifelse(is.null(dx_combined), 0, format(nrow(dx_combined), big.mark=",")), " rows (combined)")
 message("  Provider: provider, prov_spec")
 message("  Geographic: ruca")
 message("  Dispensing: dispensing")
-message("  Procedures: ", length(proc_parts), " parts")
+message("  Procedures: ", ifelse(is.null(proc_combined), 0, format(nrow(proc_combined), big.mark=",")), " rows (combined)")
 message("  ICD reference: icd_groups")
 message("\nNext step: R/02_clean.R (Phase 2)")

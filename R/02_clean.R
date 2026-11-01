@@ -107,6 +107,7 @@ encounters <- bind_rows(encounter1, encounter2)
 message("Encounter rows: ", format(nrow(encounters), big.mark = ","),
         " (", format(nrow(encounter1), big.mark = ","), " + ",
         format(nrow(encounter2), big.mark = ","), ")")
+rm(encounter1, encounter2); gc(verbose = FALSE)
 
 # NOTE: janitor::clean_names() already applied in import_sas() -- do NOT reapply
 # Phase 1 pattern: column names are already lowercase snake_case
@@ -120,20 +121,16 @@ message("Encounter rows: ", format(nrow(encounters), big.mark = ","),
 # (2) combined datasets are prerequisites for 02_merge.R joins;
 # (3) keeps 02_merge.R focused solely on relational join operations.
 
-# Combine multi-part diagnosis data (7 parts -> 1 dataset)
+# Load pre-combined diagnosis data (combined during import to minimise peak memory)
 # SAS source: SAS_CODE_FOR_V5_2.sas lines 100-108
 # SAS pattern: data v3.diagnosis; set v3.diagnosis_mobley1_v5 ... v3.diagnosis_mobley7_v5; run;
-dx_parts <- readRDS(file.path(data_dir_processed, "01_imported_dx_parts.rds"))
-dx_combined <- bind_rows(dx_parts)
-message("Diagnosis rows: ", format(nrow(dx_combined), big.mark = ","),
-        " (from ", length(dx_parts), " parts)")
+dx_combined <- readRDS(file.path(data_dir_processed, "01_imported_dx_combined.rds"))
+message("Diagnosis rows: ", format(nrow(dx_combined), big.mark = ","))
 
-# Combine multi-part procedure data (4 parts -> 1 dataset)
+# Load pre-combined procedure data (combined during import to minimise peak memory)
 # SAS source: SAS_CODE_FOR_V5_12.sas line 149
-proc_parts <- readRDS(file.path(data_dir_processed, "01_imported_proc_parts.rds"))
-proc_combined <- bind_rows(proc_parts)
-message("Procedure rows: ", format(nrow(proc_combined), big.mark = ","),
-        " (from ", length(proc_parts), " parts)")
+proc_combined <- readRDS(file.path(data_dir_processed, "01_imported_proc_combined.rds"))
+message("Procedure rows: ", format(nrow(proc_combined), big.mark = ","))
 
 # ========================================
 # Sections 5-8: Variable recoding and checkpoints (below)
