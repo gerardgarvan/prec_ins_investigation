@@ -32,14 +32,14 @@ sas_formats <- readRDS(file.path(data_dir_processed, "01_formats.rds"))
 # would produce admit_date.x / admit_date.y after the patid+encounterid joins
 # in 02_merge.R. The encounter table remains the source for those fields.
 # ------------------------------------------------------------
-KEEP_DX <- c("patid", "encounterid", "dx", "dx_type", "dx_date", "dx_source",
-             "pdx", "any_reportable_cancer", "group_site")
+KEEP_DX <- c("ID", "DIAGNOSISID", "ENCOUNTERID", "DX", "DX_TYPE",
+             "DX_DATE", "DX_SOURCE", "PDX")
 
-KEEP_PROC <- c("patid", "encounterid", "px", "px_type", "px_date",
-               "px_source", "ppx")
+KEEP_PROC <- c("ID", "PROCEDURESID", "ENCOUNTERID", "PX", "PX_TYPE",
+               "PX_DATE", "PX_SOURCE", "PPX")
 
-KEEP_DISP <- c("patid", "dispensingid", "ndc", "dispense_date",
-               "dispense_sup", "dispense_amt")
+KEEP_DISP <- c("ID", "DISPENSINGID", "NDC", "DISPENSE_DATE",
+               "DISPENSE_SUP", "DISPENSE_AMT")
 
 message("========================================")
 message("Starting SAS data import at ", Sys.time())
@@ -71,19 +71,16 @@ import_parts(
   keep_cols   = KEEP_DX
 )
 
-# GROUP 3: Provider and specialty data (small)
+# GROUP 3: Provider data (specialty included in same file — no separate prov_spec)
 # Source: SAS_CODE_FOR_V5_2.sas lines 11-20
-provider <- import_sas("provider.sas7bdat", description = "Provider data")
+provider <- import_sas("provider_mobley_v5.sas7bdat", description = "Provider data (with specialty)")
 save_checkpoint(provider, "provider"); rm(provider); gc(verbose = FALSE)
 
-prov_spec <- import_sas("prov_spec.sas7bdat",
-                        description = "Provider specialty reference (cancer provider flag)")
-save_checkpoint(prov_spec, "prov_spec"); rm(prov_spec); gc(verbose = FALSE)
-
-# GROUP 4: Geographic reference data (small)
+# GROUP 4: Geographic reference data (ZCTA-based)
 # Source: SAS_CODE_FOR_V5_2.sas lines 27-37
-ruca <- import_sas("ruca.sas7bdat", description = "RUCA rural-urban classification codes")
-save_checkpoint(ruca, "ruca"); rm(ruca); gc(verbose = FALSE)
+# NOTE: actual file is zcta.sas7bdat (not ruca.sas7bdat)
+zcta <- import_sas("zcta.sas7bdat", description = "ZCTA geographic reference (SDI/RUCA linkage)")
+save_checkpoint(zcta, "zcta"); rm(zcta); gc(verbose = FALSE)
 
 # GROUP 5: Dispensing/prescription data
 # Source: SAS_CODE_FOR_V5_12.sas lines 22-29

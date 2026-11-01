@@ -42,9 +42,9 @@ source(here::here("R", "utils_import.R"))
 
 # Encounter columns used downstream (02_clean.R -> 04_regression.R).
 # Add names here if a later script needs another ENCOUNTER field. NULL = all columns.
-KEEP_ENC <- c("patid", "encounterid", "admit_date", "discharge_date", "enc_type",
-              "discharge_status", "discharge_disposition", "payer_type_primary",
-              "payer_type_secondary", "providerid", "facilityid", "drg", "source")
+KEEP_ENC <- c("ID", "ENCOUNTERID", "ADMIT_DATE", "DISCHARGE_DATE", "ENC_TYPE",
+              "DISCHARGE_STATUS", "DISCHARGE_DISPOSITION", "PAYER_TYPE_PRIMARY",
+              "PAYER_TYPE_SECONDARY", "PROVIDERID", "FACILITYID", "DRG", "SOURCE")
 
 # ========================================
 # Section 3 -- Encounter Import (per D-07, CLN-02)
