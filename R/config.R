@@ -9,7 +9,7 @@ library(here)
 
 # Data directory paths
 # Where SAS7BDAT files live
-data_dir_raw <- here::here("data", "raw")
+data_dir_raw <- "/orange/erin.mobley-precision/Data_v5"
 
 # Where .rds checkpoints go
 data_dir_processed <- here::here("data", "processed")
