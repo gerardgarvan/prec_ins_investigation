@@ -4,124 +4,52 @@
 # Per IMP-03: Validates SAS date conversion to R Date objects
 # Per IMP-05: Preserves SAS variable labels as R attributes
 # Per INF-05: Saves .rds checkpoints for each imported dataset
-# Per INF-04: All SAS logic decisions documented in inline comments
 # Per D-10: V5 is primary target. SAS code uses "v3" alias for Data_v5 directory.
 #
-# Raw V5 Data Tables Inventory (from forensic analysis of V5 SAS files):
-# -----------------------------------------------------------------------
-# From Data_v5/ directory (SAS alias: v3):
-#   1. demographic_mobley_v5.sas7bdat     — Patient demographics (SOURCE: V5_2 line 54)
-#   2. Enrollment_mobley_v5.sas7bdat      — Patient enrollment (SOURCE: V5_2 line 39)
-#   3. Address_history_mobley_v5.sas7bdat — Address history (SOURCE: V5_2 line 23)
-#   4. diagnosis_mobley1_v5.sas7bdat      — Diagnosis part 1 of 7 (SOURCE: V5_2 line 100)
-#   5. diagnosis_mobley2_v5.sas7bdat      — Diagnosis part 2 of 7
-#   6. diagnosis_mobley3_v5.sas7bdat      — Diagnosis part 3 of 7
-#   7. diagnosis_mobley4_v5.sas7bdat      — Diagnosis part 4 of 7
-#   8. diagnosis_mobley5_v5.sas7bdat      — Diagnosis part 5 of 7
-#   9. diagnosis_mobley6_v5.sas7bdat      — Diagnosis part 6 of 7
-#  10. diagnosis_mobley7_v5.sas7bdat      — Diagnosis part 7 of 7
-#  11. provider.sas7bdat                  — Provider data (SOURCE: V5_2 line 18)
-#  12. prov_spec.sas7bdat                 — Provider specialty reference (SOURCE: V5_2 line 19)
-#  13. ruca.sas7bdat                      — RUCA codes reference (SOURCE: V5_2 line 37)
-#  14. dispensing_mobley_v5.sas7bdat      — Dispensing/prescriptions (SOURCE: V5_12 line 22)
-#  15. procedures_mobley1_v5.sas7bdat     — Procedures part 1 of 4 (SOURCE: V5_12 line 149)
-#  16. procedures_mobley2_v5.sas7bdat     — Procedures part 2 of 4
-#  17. procedures_mobley3_v5.sas7bdat     — Procedures part 3 of 4
-#  18. procedures4_mobley_v5.sas7bdat     — Procedures part 4 of 4 (NOTE: naming inconsistency)
+# MEMORY REVISION (HiPerGator crash at import):
+#   - Large tables (diagnosis, procedures, dispensing) are read with column
+#     selection (KEEP_* vectors below). Edit these if a downstream script needs
+#     another column. NULL = read every column.
+#   - Multi-part files are stacked once (import_parts) instead of in a growing loop.
+#   - Small tables (demo, enrollment, address, provider, reference) are read in full.
+#   - Run as a SLURM batch job with enough memory (see run_import.sbatch).
 #
-# From Dx/ directory (SAS alias: dx):
-#  19. Icd10_groups2.sas7bdat             — ICD-10 cancer site groups (SOURCE: V5_3 line 49)
-#
-# SAS BUG FIX: SAS code uses "v3" alias for Data_v5 directory (confusing).
-# R config uses clear name: data_dir_raw. See config.R for documentation.
+# Raw V5 Data Tables Inventory: see original header (unchanged file list).
 
 library(here)
 source(here::here("R", "config.R"))
-library(haven)
+source(here::here("R", "utils_import.R"))
 library(tidyverse)
-library(janitor)
 
 # Load format definitions from Phase 1 checkpoint
 sas_formats <- readRDS(file.path(data_dir_processed, "01_formats.rds"))
+
+# ------------------------------------------------------------
+# Columns to keep for the large tables (case-insensitive SAS names)
+# Derived from what 02_clean.R through 04_regression.R reference.
+# NOTE: admit_date / enc_type / providerid are deliberately NOT kept from
+# diagnosis or procedures. They duplicate ENCOUNTER columns, and keeping them
+# would produce admit_date.x / admit_date.y after the patid+encounterid joins
+# in 02_merge.R. The encounter table remains the source for those fields.
+# ------------------------------------------------------------
+KEEP_DX <- c("patid", "encounterid", "dx", "dx_type", "dx_date", "dx_source",
+             "pdx", "any_reportable_cancer", "group_site")
+
+KEEP_PROC <- c("patid", "encounterid", "px", "px_type", "px_date",
+               "px_source", "ppx")
+
+KEEP_DISP <- c("patid", "dispensingid", "ndc", "dispense_date",
+               "dispense_sup", "dispense_amt")
 
 message("========================================")
 message("Starting SAS data import at ", Sys.time())
 message("Data directory: ", data_dir_raw)
 message("Encoding: ", sas_encoding)
+slurm_mem <- Sys.getenv("SLURM_MEM_PER_NODE", unset = NA)
+if (!is.na(slurm_mem)) message("SLURM memory allocation: ", slurm_mem, " MB")
 message("========================================")
 
-#' Import a SAS7BDAT file with standard validation
-#' @param filename Character, the .sas7bdat filename (without path)
-#' @param data_dir Character, directory containing the file (default: data_dir_raw)
-#' @param description Character, human-readable description for logging
-#' @return Tibble with clean names and preserved labels
-import_sas <- function(filename, data_dir = data_dir_raw, description = filename) {
-  filepath <- file.path(data_dir, filename)
-  message("  Importing: ", description, " (", filename, ")")
-
-  if (!file.exists(filepath)) {
-    warning("File not found: ", filepath, " — skipping. ",
-            "Place file in ", data_dir, " and rerun.")
-    return(NULL)
-  }
-
-  df <- read_sas(data_file = filepath, encoding = sas_encoding)
-
-  # Preserve original labels before clean_names potentially drops them
-  original_labels <- purrr::map_chr(df, ~attr(.x, "label") %||% NA_character_)
-
-  # Standardize column names (per CLN-01 prep, janitor convention)
-  df <- janitor::clean_names(df)
-
-  # Store original labels as an attribute on the data frame itself
-  # (individual column labels may be lost during tidyverse operations per Research pitfall 5)
-  attr(df, "sas_labels") <- original_labels
-
-  # Per IMP-03: Check for date columns that should be Date class
-  # SAS dates auto-convert via haven if they have DATE format metadata
-  # Numeric dates (days since 1960-01-01) need manual conversion
-  date_candidates <- names(df)[grepl("date|dt$|_dt$", names(df), ignore.case = TRUE)]
-  for (col in date_candidates) {
-    if (is.numeric(df[[col]]) && !inherits(df[[col]], "Date")) {
-      # Check if values are in plausible SAS date range (days since 1960-01-01)
-      # Year 1950 = -3653 days, Year 2030 = 25567 days from 1960 origin
-      vals <- df[[col]][!is.na(df[[col]])]
-      if (length(vals) > 0 && all(vals > -5000 & vals < 30000)) {
-        message("    NOTE: Converting ", col, " from numeric to Date (SAS origin 1960-01-01)")
-        message("    # SAS date variable without format metadata - manual conversion applied")
-        df[[col]] <- as.Date(df[[col]], origin = "1960-01-01")
-      }
-    }
-  }
-
-  message("    Rows: ", format(nrow(df), big.mark = ","),
-          " | Cols: ", ncol(df),
-          " | Labels preserved: ", sum(!is.na(original_labels)), "/", length(original_labels))
-
-  return(df)
-}
-
-# ============================================================
-# GROUP 1: Core patient data
-# Source: SAS_CODE_FOR_V5_2.sas lines 39-97
-# SAS pattern: v3.demographic_mobley_v5, v3.Enrollment_mobley_v5
-# NOTE: SAS "v3" alias = Data_v5 directory (per D-10)
-# ============================================================
-
-# Save-and-discard pattern throughout: each dataset is written to .rds and removed
-# from memory before the next dataset is loaded, keeping peak RAM to ~1 dataset at a time.
-
-save_checkpoint <- function(obj, name) {
-  if (!is.null(obj)) {
-    path <- file.path(data_dir_processed, paste0("01_imported_", name, ".rds"))
-    saveRDS(obj, path)
-    message("  Saved: ", name, ".rds (", format(nrow(obj), big.mark = ","), " rows)")
-  } else {
-    message("  Skipped (NULL): ", name)
-  }
-}
-
-# GROUP 1: Core patient data
+# GROUP 1: Core patient data (small; read in full)
 # Source: SAS_CODE_FOR_V5_2.sas lines 39-97
 demo <- import_sas("demographic_mobley_v5.sas7bdat", description = "Patient demographics")
 save_checkpoint(demo, "demo"); rm(demo); gc(verbose = FALSE)
@@ -129,124 +57,64 @@ save_checkpoint(demo, "demo"); rm(demo); gc(verbose = FALSE)
 enroll <- import_sas("enrollment_mobley_v5.sas7bdat", description = "Patient enrollment periods")
 save_checkpoint(enroll, "enroll"); rm(enroll); gc(verbose = FALSE)
 
-address <- import_sas("address_history_mobley_v5.sas7bdat", description = "Address history for RUCA/SDI linkage")
+address <- import_sas("address_history_mobley_v5.sas7bdat",
+                      description = "Address history for RUCA/SDI linkage")
 save_checkpoint(address, "address"); rm(address); gc(verbose = FALSE)
 
 # GROUP 2: Diagnosis data (7 parts — SAS concatenates with SET statement)
 # Source: SAS_CODE_FOR_V5_2.sas lines 100-108
-# Stream-combine one part at a time, save combined result, discard before next group
-dx_combined <- NULL
-dx_parts_loaded <- 0
-for (i in 1:7) {
-  filename <- paste0("diagnosis_mobley", i, "_v5.sas7bdat")
-  part <- import_sas(filename, description = paste("Diagnosis part", i, "of 7"))
-  if (!is.null(part)) {
-    dx_combined <- bind_rows(dx_combined, part)
-    dx_parts_loaded <- dx_parts_loaded + 1
-    rm(part); gc(verbose = FALSE)
-  }
-}
-if (!is.null(dx_combined)) {
-  message("  Diagnosis parts combined: ", dx_parts_loaded, "/7 (",
-          format(nrow(dx_combined), big.mark = ","), " total rows)")
-  saveRDS(dx_combined, file.path(data_dir_processed, "01_imported_dx_combined.rds"))
-  message("  Saved: dx_combined.rds")
-  rm(dx_combined); gc(verbose = FALSE)
-}
+dx_combined <- import_parts(
+  files       = paste0("diagnosis_mobley", 1:7, "_v5.sas7bdat"),
+  description = "Diagnosis",
+  keep_cols   = KEEP_DX
+)
+save_checkpoint(dx_combined, "dx_combined"); rm(dx_combined); gc(verbose = FALSE)
 
-# GROUP 3: Provider and specialty data
+# GROUP 3: Provider and specialty data (small)
 # Source: SAS_CODE_FOR_V5_2.sas lines 11-20
 provider <- import_sas("provider.sas7bdat", description = "Provider data")
 save_checkpoint(provider, "provider"); rm(provider); gc(verbose = FALSE)
 
-prov_spec <- import_sas("prov_spec.sas7bdat", description = "Provider specialty reference (cancer provider flag)")
+prov_spec <- import_sas("prov_spec.sas7bdat",
+                        description = "Provider specialty reference (cancer provider flag)")
 save_checkpoint(prov_spec, "prov_spec"); rm(prov_spec); gc(verbose = FALSE)
 
-# GROUP 4: Geographic reference data
+# GROUP 4: Geographic reference data (small)
 # Source: SAS_CODE_FOR_V5_2.sas lines 27-37
 ruca <- import_sas("ruca.sas7bdat", description = "RUCA rural-urban classification codes")
 save_checkpoint(ruca, "ruca"); rm(ruca); gc(verbose = FALSE)
 
 # GROUP 5: Dispensing/prescription data
 # Source: SAS_CODE_FOR_V5_12.sas lines 22-29
-# SAS BUG FIX: V5_12 uses "v4" alias but it points to Data_v5 directory
-dispensing <- import_sas("dispensing_mobley_v5.sas7bdat", description = "Dispensing/prescription data")
+dispensing <- import_sas("dispensing_mobley_v5.sas7bdat",
+                         description = "Dispensing/prescription data",
+                         keep_cols = KEEP_DISP)
 save_checkpoint(dispensing, "dispensing"); rm(dispensing); gc(verbose = FALSE)
 
 # GROUP 6: Procedures data (4 parts)
 # Source: SAS_CODE_FOR_V5_12.sas line 149
-# SAS BUG FIX: Part 4 naming inconsistency — "procedures4_mobley_v5" not "procedures_mobley4_v5"
-proc_files <- c(
-  "procedures_mobley1_v5.sas7bdat",
-  "procedures_mobley2_v5.sas7bdat",
-  "procedures_mobley3_v5.sas7bdat",
-  "procedures4_mobley_v5.sas7bdat"  # NOTE: naming inconsistency in part 4
+# SAS BUG FIX: Part 4 naming inconsistency — "procedures4_mobley_v5"
+proc_combined <- import_parts(
+  files = c("procedures_mobley1_v5.sas7bdat",
+            "procedures_mobley2_v5.sas7bdat",
+            "procedures_mobley3_v5.sas7bdat",
+            "procedures4_mobley_v5.sas7bdat"),
+  description = "Procedures",
+  keep_cols   = KEEP_PROC
 )
-proc_combined <- NULL
-proc_parts_loaded <- 0
-for (i in seq_along(proc_files)) {
-  part <- import_sas(proc_files[i], description = paste("Procedures part", i, "of 4"))
-  if (!is.null(part)) {
-    proc_combined <- bind_rows(proc_combined, part)
-    proc_parts_loaded <- proc_parts_loaded + 1
-    rm(part); gc(verbose = FALSE)
-  }
-}
-if (!is.null(proc_combined)) {
-  message("  Procedure parts combined: ", proc_parts_loaded, "/4 (",
-          format(nrow(proc_combined), big.mark = ","), " total rows)")
-  saveRDS(proc_combined, file.path(data_dir_processed, "01_imported_proc_combined.rds"))
-  message("  Saved: proc_combined.rds")
-  rm(proc_combined); gc(verbose = FALSE)
-}
+save_checkpoint(proc_combined, "proc_combined"); rm(proc_combined); gc(verbose = FALSE)
 
 # GROUP 7: ICD code reference data (separate Dx directory)
 # Source: SAS_CODE_FOR_V5_3.sas line 49
-# SAS libname: libname dx "/blue/erin.mobley-precision/ResVault/f/Dx"
 icd_groups <- import_sas("Icd10_groups2.sas7bdat", description = "ICD-10 cancer site group mapping")
 if (is.null(icd_groups)) {
   dx_dir <- file.path(data_dir_raw, "Dx")
   if (dir.exists(dx_dir)) {
-    icd_groups <- import_sas("Icd10_groups2.sas7bdat",
-                              data_dir = dx_dir,
-                              description = "ICD-10 cancer site groups (from Dx/ subdir)")
+    icd_groups <- import_sas("Icd10_groups2.sas7bdat", data_dir = dx_dir,
+                             description = "ICD-10 cancer site groups (from Dx/ subdir)")
   }
 }
 save_checkpoint(icd_groups, "icd_groups"); rm(icd_groups); gc(verbose = FALSE)
-
-# ============================================================
-# DATE VALIDATION (per IMP-03)
-# Per Research pitfall 2: Some SAS date variables may import as numeric
-# if they lack explicit DATE format metadata. The import_sas() helper
-# auto-converts plausible numeric dates, but verify key date columns here.
-#
-# VALIDATION CHECKLIST (run when data is available):
-# - demo$birth_date: expect Date class, range ~1920-2020
-# - enroll$enr_end_date: expect Date class, range ~2010-2025
-# - enroll$enr_start_date: expect Date class, range ~2010-2025
-# - address$address_period_start: expect Date class
-# - address$address_period_end: expect Date class
-# - dx_parts[[1]]$admit_date: expect Date class
-# - dx_parts[[1]]$dx_date: expect Date class
-# ============================================================
-
-validate_date_columns <- function(df, name, expected_date_cols) {
-  if (is.null(df)) return(invisible(NULL))
-  for (col in expected_date_cols) {
-    col_clean <- janitor::make_clean_names(col)
-    if (col_clean %in% names(df)) {
-      if (inherits(df[[col_clean]], "Date")) {
-        message("  OK: ", name, "$", col_clean, " is Date class")
-      } else {
-        warning("  CHECK: ", name, "$", col_clean, " is ", class(df[[col_clean]])[1],
-                " — may need manual date conversion from SAS origin 1960-01-01")
-      }
-    }
-  }
-}
-
-# Date validation and label reports run inline during import (datasets discarded after saving).
-# To inspect: readRDS(file.path(data_dir_processed, "01_imported_demo.rds")) etc.
 
 message("\n========================================")
 message("Import complete at ", Sys.time())

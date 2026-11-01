@@ -35,60 +35,16 @@ message("Started: ", Sys.time())
 message("========================================")
 
 # ========================================
-# Section 2 -- import_sas helper (replicated from 01_import.R)
+# Section 2 -- import helpers (shared with 01_import.R)
 # ========================================
 
-# Replicated from 01_import.R to avoid re-executing all Phase 1 imports when sourcing
-#' Import a SAS7BDAT file with standard validation
-#' @param filename Character, the .sas7bdat filename (without path)
-#' @param data_dir Character, directory containing the file (default: data_dir_raw)
-#' @param description Character, human-readable description for logging
-#' @return Tibble with clean names and preserved labels
-import_sas <- function(filename, data_dir = data_dir_raw, description = filename) {
-  filepath <- file.path(data_dir, filename)
-  message("  Importing: ", description, " (", filename, ")")
+source(here::here("R", "utils_import.R"))
 
-  if (!file.exists(filepath)) {
-    warning("File not found: ", filepath, " — skipping. ",
-            "Place file in ", data_dir, " and rerun.")
-    return(NULL)
-  }
-
-  df <- read_sas(data_file = filepath, encoding = sas_encoding)
-
-  # Preserve original labels before clean_names potentially drops them
-  original_labels <- purrr::map_chr(df, ~attr(.x, "label") %||% NA_character_)
-
-  # Standardize column names (per CLN-01 prep, janitor convention)
-  df <- janitor::clean_names(df)
-
-  # Store original labels as an attribute on the data frame itself
-  # (individual column labels may be lost during tidyverse operations per Research pitfall 5)
-  attr(df, "sas_labels") <- original_labels
-
-  # Per IMP-03: Check for date columns that should be Date class
-  # SAS dates auto-convert via haven if they have DATE format metadata
-  # Numeric dates (days since 1960-01-01) need manual conversion
-  date_candidates <- names(df)[grepl("date|dt$|_dt$", names(df), ignore.case = TRUE)]
-  for (col in date_candidates) {
-    if (is.numeric(df[[col]]) && !inherits(df[[col]], "Date")) {
-      # Check if values are in plausible SAS date range (days since 1960-01-01)
-      # Year 1950 = -3653 days, Year 2030 = 25567 days from 1960 origin
-      vals <- df[[col]][!is.na(df[[col]])]
-      if (length(vals) > 0 && all(vals > -5000 & vals < 30000)) {
-        message("    NOTE: Converting ", col, " from numeric to Date (SAS origin 1960-01-01)")
-        message("    # SAS date variable without format metadata - manual conversion applied")
-        df[[col]] <- as.Date(df[[col]], origin = "1960-01-01")
-      }
-    }
-  }
-
-  message("    Rows: ", format(nrow(df), big.mark = ","),
-          " | Cols: ", ncol(df),
-          " | Labels preserved: ", sum(!is.na(original_labels)), "/", length(original_labels))
-
-  return(df)
-}
+# Encounter columns used downstream (02_clean.R -> 04_regression.R).
+# Add names here if a later script needs another ENCOUNTER field. NULL = all columns.
+KEEP_ENC <- c("patid", "encounterid", "admit_date", "discharge_date", "enc_type",
+              "discharge_status", "discharge_disposition", "payer_type_primary",
+              "payer_type_secondary", "providerid", "facilityid", "drg", "source")
 
 # ========================================
 # Section 3 -- Encounter Import (per D-07, CLN-02)
@@ -97,17 +53,13 @@ import_sas <- function(filename, data_dir = data_dir_raw, description = filename
 # Per D-07: Import encounter files at top of 02_clean.R (NOT in 01_import.R)
 # SAS source: HL_IDS_1_9_2025.sas lines 73-74
 # SAS pattern: data encounters; set v3.encounter1_mobley_v5 v3.encounter2_mobley_v5; run;
-encounter1 <- import_sas("encounter1_mobley_v5.sas7bdat",
-                          description = "Encounter part 1 of 2")
-encounter2 <- import_sas("encounter2_mobley_v5.sas7bdat",
-                          description = "Encounter part 2 of 2")
-
 # CLN-02: Combine encounters (R equivalent of SAS SET statement)
-encounters <- bind_rows(encounter1, encounter2)
-message("Encounter rows: ", format(nrow(encounters), big.mark = ","),
-        " (", format(nrow(encounter1), big.mark = ","), " + ",
-        format(nrow(encounter2), big.mark = ","), ")")
-rm(encounter1, encounter2); gc(verbose = FALSE)
+encounters <- import_parts(
+  files       = c("encounter1_mobley_v5.sas7bdat", "encounter2_mobley_v5.sas7bdat"),
+  description = "Encounter",
+  keep_cols   = KEEP_ENC
+)
+message("Encounter rows: ", format(nrow(encounters), big.mark = ","))
 
 # NOTE: janitor::clean_names() already applied in import_sas() -- do NOT reapply
 # Phase 1 pattern: column names are already lowercase snake_case
