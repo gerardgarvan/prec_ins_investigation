@@ -63,12 +63,13 @@ save_checkpoint(address, "address"); rm(address); gc(verbose = FALSE)
 
 # GROUP 2: Diagnosis data (7 parts — SAS concatenates with SET statement)
 # Source: SAS_CODE_FOR_V5_2.sas lines 100-108
-dx_combined <- import_parts(
+# Each part is saved to its own RDS and discarded immediately (see import_parts).
+# 02_clean.R reads and filters parts individually to avoid 50+ GB combined load.
+import_parts(
   files       = paste0("diagnosis_mobley", 1:7, "_v5.sas7bdat"),
-  description = "Diagnosis",
+  description = "dx",
   keep_cols   = KEEP_DX
 )
-save_checkpoint(dx_combined, "dx_combined"); rm(dx_combined); gc(verbose = FALSE)
 
 # GROUP 3: Provider and specialty data (small)
 # Source: SAS_CODE_FOR_V5_2.sas lines 11-20
@@ -94,15 +95,15 @@ save_checkpoint(dispensing, "dispensing"); rm(dispensing); gc(verbose = FALSE)
 # GROUP 6: Procedures data (4 parts)
 # Source: SAS_CODE_FOR_V5_12.sas line 149
 # SAS BUG FIX: Part 4 naming inconsistency — "procedures4_mobley_v5"
-proc_combined <- import_parts(
+# Each part saved individually; combined in 02_clean.R after patient filtering.
+import_parts(
   files = c("procedures_mobley1_v5.sas7bdat",
             "procedures_mobley2_v5.sas7bdat",
             "procedures_mobley3_v5.sas7bdat",
             "procedures4_mobley_v5.sas7bdat"),
-  description = "Procedures",
+  description = "proc",
   keep_cols   = KEEP_PROC
 )
-save_checkpoint(proc_combined, "proc_combined"); rm(proc_combined); gc(verbose = FALSE)
 
 # GROUP 7: ICD code reference data (separate Dx directory)
 # Source: SAS_CODE_FOR_V5_3.sas line 49

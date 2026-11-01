@@ -83,30 +83,35 @@ import_sas <- function(filename, data_dir = data_dir_raw, description = filename
   df
 }
 
-#' Import several SAS files that share a layout and stack them (SAS SET)
-#' Parts are held in a list and bound once, so peak RAM is ~2x the final
-#' table rather than growing copies on every iteration.
+#' Import several SAS files that share a layout, saving each part to its own
+#' RDS file immediately and discarding it from RAM before reading the next.
+#' Returns a character vector of the saved RDS paths (NOT a data frame).
+#' Downstream scripts read and filter each part individually to avoid ever
+#' holding the full combined table in memory.
+#'
+#' @param files       character vector of .sas7bdat filenames
+#' @param description label used for logging and output filenames (e.g. "dx")
+#' @param keep_cols   columns to select at read time (NULL = all)
+#' @param data_dir    source directory (default: data_dir_raw)
+#' @return character vector of saved .rds paths (one per successfully loaded part)
 import_parts <- function(files, description, keep_cols = NULL, data_dir = data_dir_raw) {
-  parts <- vector("list", length(files))
+  saved_paths <- character(0)
   for (i in seq_along(files)) {
-    parts[[i]] <- import_sas(files[i], data_dir = data_dir,
-                             description = paste0(description, " part ", i, " of ", length(files)),
-                             keep_cols = keep_cols)
-    gc(verbose = FALSE)
+    part <- import_sas(files[i], data_dir = data_dir,
+                       description = paste0(description, " part ", i, " of ", length(files)),
+                       keep_cols = keep_cols)
+    if (!is.null(part)) {
+      out_path <- file.path(data_dir_processed,
+                            paste0("01_imported_", tolower(description), "_part", i, ".rds"))
+      saveRDS(part, out_path)
+      message("    Saved part ", i, " -> ", basename(out_path))
+      saved_paths <- c(saved_paths, out_path)
+      rm(part); gc(verbose = FALSE)
+    }
   }
-  loaded <- !vapply(parts, is.null, logical(1))
-  parts <- parts[loaded]
-  if (length(parts) == 0) return(NULL)
-
-  labels_first <- attr(parts[[1]], "sas_labels")
-  combined <- dplyr::bind_rows(parts)
-  rm(parts); gc(verbose = FALSE)
-  attr(combined, "sas_labels") <- labels_first
-
-  message("  ", description, " parts combined: ", sum(loaded), "/", length(files), " (",
-          format(nrow(combined), big.mark = ","), " total rows, ",
-          format(utils::object.size(combined), units = "GB", standard = "legacy"), ")")
-  combined
+  message("  ", description, ": ", length(saved_paths), "/", length(files),
+          " parts saved to disk individually")
+  saved_paths
 }
 
 #' Save an object to data_dir_processed as 01_imported_<name>.rds

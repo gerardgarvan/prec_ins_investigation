@@ -53,12 +53,14 @@ KEEP_ENC <- c("patid", "encounterid", "admit_date", "discharge_date", "enc_type"
 # Per D-07: Import encounter files at top of 02_clean.R (NOT in 01_import.R)
 # SAS source: HL_IDS_1_9_2025.sas lines 73-74
 # SAS pattern: data encounters; set v3.encounter1_mobley_v5 v3.encounter2_mobley_v5; run;
-# CLN-02: Combine encounters (R equivalent of SAS SET statement)
-encounters <- import_parts(
-  files       = c("encounter1_mobley_v5.sas7bdat", "encounter2_mobley_v5.sas7bdat"),
-  description = "Encounter",
-  keep_cols   = KEEP_ENC
-)
+# CLN-02: Import and combine encounters (R equivalent of SAS SET statement)
+# Encounters are imported directly here (not via import_parts) so they stay as a data frame.
+enc1 <- import_sas("encounter1_mobley_v5.sas7bdat", description = "Encounter part 1 of 2",
+                   keep_cols = KEEP_ENC)
+enc2 <- import_sas("encounter2_mobley_v5.sas7bdat", description = "Encounter part 2 of 2",
+                   keep_cols = KEEP_ENC)
+encounters <- dplyr::bind_rows(enc1, enc2)
+rm(enc1, enc2); gc(verbose = FALSE)
 message("Encounter rows: ", format(nrow(encounters), big.mark = ","))
 
 # NOTE: janitor::clean_names() already applied in import_sas() -- do NOT reapply
@@ -73,16 +75,21 @@ message("Encounter rows: ", format(nrow(encounters), big.mark = ","))
 # (2) combined datasets are prerequisites for 02_merge.R joins;
 # (3) keeps 02_merge.R focused solely on relational join operations.
 
-# Load pre-combined diagnosis data (combined during import to minimise peak memory)
+# Combine diagnosis parts from individual RDS files (saved one-per-part during import)
+# Reading and binding here rather than at import time keeps peak RAM to ~1 part at a time.
 # SAS source: SAS_CODE_FOR_V5_2.sas lines 100-108
-# SAS pattern: data v3.diagnosis; set v3.diagnosis_mobley1_v5 ... v3.diagnosis_mobley7_v5; run;
-dx_combined <- readRDS(file.path(data_dir_processed, "01_imported_dx_combined.rds"))
-message("Diagnosis rows: ", format(nrow(dx_combined), big.mark = ","))
+dx_part_files <- sort(list.files(data_dir_processed, pattern = "01_imported_dx_part\\d+\\.rds",
+                                  full.names = TRUE))
+dx_combined <- purrr::map(dx_part_files, readRDS) |> dplyr::bind_rows()
+message("Diagnosis rows: ", format(nrow(dx_combined), big.mark = ","),
+        " (from ", length(dx_part_files), " parts)")
 
-# Load pre-combined procedure data (combined during import to minimise peak memory)
-# SAS source: SAS_CODE_FOR_V5_12.sas line 149
-proc_combined <- readRDS(file.path(data_dir_processed, "01_imported_proc_combined.rds"))
-message("Procedure rows: ", format(nrow(proc_combined), big.mark = ","))
+# Combine procedure parts
+proc_part_files <- sort(list.files(data_dir_processed, pattern = "01_imported_proc_part\\d+\\.rds",
+                                    full.names = TRUE))
+proc_combined <- purrr::map(proc_part_files, readRDS) |> dplyr::bind_rows()
+message("Procedure rows: ", format(nrow(proc_combined), big.mark = ","),
+        " (from ", length(proc_part_files), " parts)")
 
 # ========================================
 # Sections 5-8: Variable recoding and checkpoints (below)
