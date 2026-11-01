@@ -12,20 +12,19 @@ library(here)
 data_dir_raw <- "/orange/erin.mobley-precision/Data_v5"
 
 # Where .rds checkpoints go
-data_dir_processed <- here::here("data", "processed")
+data_dir_processed <- "/blue/erin.mobley-precision/ggarvan/data/processed"
 
 # Output directory paths
-output_dir <- here::here("output")
-output_dir_tables <- here::here("output", "tables")
-output_dir_figures <- here::here("output", "figures")
-output_dir_diagnostics <- here::here("output", "diagnostics")
+output_dir <- "/blue/erin.mobley-precision/ggarvan/output"
+output_dir_tables <- "/blue/erin.mobley-precision/ggarvan/output/tables"
+output_dir_figures <- "/blue/erin.mobley-precision/ggarvan/output/figures"
+output_dir_diagnostics <- "/blue/erin.mobley-precision/ggarvan/output/diagnostics"
 
 # SAS encoding parameter (per Research pitfall 6)
 # Default for clinical data; change to "UTF-8" if text corruption detected
 sas_encoding <- "latin1"
 
-# Directory creation block
-dir.create(data_dir_raw, recursive = TRUE, showWarnings = FALSE)
+# Directory creation block (data_dir_raw is read-only orange storage — do not create)
 dir.create(data_dir_processed, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_tables, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_figures, recursive = TRUE, showWarnings = FALSE)
