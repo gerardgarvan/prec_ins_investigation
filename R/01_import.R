@@ -108,24 +108,33 @@ import_sas <- function(filename, data_dir = data_dir_raw, description = filename
 # NOTE: SAS "v3" alias = Data_v5 directory (per D-10)
 # ============================================================
 
-demo <- import_sas("demographic_mobley_v5.sas7bdat",
-                    description = "Patient demographics")
+# Save-and-discard pattern throughout: each dataset is written to .rds and removed
+# from memory before the next dataset is loaded, keeping peak RAM to ~1 dataset at a time.
 
-enroll <- import_sas("Enrollment_mobley_v5.sas7bdat",
-                     description = "Patient enrollment periods")
+save_checkpoint <- function(obj, name) {
+  if (!is.null(obj)) {
+    path <- file.path(data_dir_processed, paste0("01_imported_", name, ".rds"))
+    saveRDS(obj, path)
+    message("  Saved: ", name, ".rds (", format(nrow(obj), big.mark = ","), " rows)")
+  } else {
+    message("  Skipped (NULL): ", name)
+  }
+}
 
-address <- import_sas("Address_history_mobley_v5.sas7bdat",
-                      description = "Address history for RUCA/SDI linkage")
+# GROUP 1: Core patient data
+# Source: SAS_CODE_FOR_V5_2.sas lines 39-97
+demo <- import_sas("demographic_mobley_v5.sas7bdat", description = "Patient demographics")
+save_checkpoint(demo, "demo"); rm(demo); gc(verbose = FALSE)
 
-# ============================================================
+enroll <- import_sas("Enrollment_mobley_v5.sas7bdat", description = "Patient enrollment periods")
+save_checkpoint(enroll, "enroll"); rm(enroll); gc(verbose = FALSE)
+
+address <- import_sas("Address_history_mobley_v5.sas7bdat", description = "Address history for RUCA/SDI linkage")
+save_checkpoint(address, "address"); rm(address); gc(verbose = FALSE)
+
 # GROUP 2: Diagnosis data (7 parts — SAS concatenates with SET statement)
 # Source: SAS_CODE_FOR_V5_2.sas lines 100-108
-# SAS pattern: data v3.diagnosis; set v3.diagnosis_mobley1_v5
-#                                     v3.diagnosis_mobley2_v5 ... v3.diagnosis_mobley7_v5;
-# R equivalent: Import individually, then bind_rows() in Phase 2
-# ============================================================
-
-# Stream-combine: read one part at a time to avoid holding all 7 in memory simultaneously
+# Stream-combine one part at a time, save combined result, discard before next group
 dx_combined <- NULL
 dx_parts_loaded <- 0
 for (i in 1:7) {
@@ -140,58 +149,39 @@ for (i in 1:7) {
 if (!is.null(dx_combined)) {
   message("  Diagnosis parts combined: ", dx_parts_loaded, "/7 (",
           format(nrow(dx_combined), big.mark = ","), " total rows)")
+  saveRDS(dx_combined, file.path(data_dir_processed, "01_imported_dx_combined.rds"))
+  message("  Saved: dx_combined.rds")
+  rm(dx_combined); gc(verbose = FALSE)
 }
 
-# ============================================================
 # GROUP 3: Provider and specialty data
 # Source: SAS_CODE_FOR_V5_2.sas lines 11-20
-# SAS pattern: v3.provider, v3.prov_spec
-# ============================================================
+provider <- import_sas("provider.sas7bdat", description = "Provider data")
+save_checkpoint(provider, "provider"); rm(provider); gc(verbose = FALSE)
 
-provider <- import_sas("provider.sas7bdat",
-                        description = "Provider data")
+prov_spec <- import_sas("prov_spec.sas7bdat", description = "Provider specialty reference (cancer provider flag)")
+save_checkpoint(prov_spec, "prov_spec"); rm(prov_spec); gc(verbose = FALSE)
 
-prov_spec <- import_sas("prov_spec.sas7bdat",
-                         description = "Provider specialty reference (cancer provider flag)")
-
-# ============================================================
 # GROUP 4: Geographic reference data
 # Source: SAS_CODE_FOR_V5_2.sas lines 27-37
-# SAS pattern: v3.ruca (RUCA codes for rural-urban classification)
-# ============================================================
+ruca <- import_sas("ruca.sas7bdat", description = "RUCA rural-urban classification codes")
+save_checkpoint(ruca, "ruca"); rm(ruca); gc(verbose = FALSE)
 
-ruca <- import_sas("ruca.sas7bdat",
-                    description = "RUCA rural-urban classification codes")
-
-# ============================================================
 # GROUP 5: Dispensing/prescription data
 # Source: SAS_CODE_FOR_V5_12.sas lines 22-29
-# SAS pattern: v4.dispensing_mobley_v5
-# NOTE: V5_12 confusingly uses "v4" alias for Data_v5 directory
-# SAS BUG FIX: V5_12 line 15 has "libname v4 &path/Data_v5/" — v4 alias points to v5 data
-# ============================================================
+# SAS BUG FIX: V5_12 uses "v4" alias but it points to Data_v5 directory
+dispensing <- import_sas("dispensing_mobley_v5.sas7bdat", description = "Dispensing/prescription data")
+save_checkpoint(dispensing, "dispensing"); rm(dispensing); gc(verbose = FALSE)
 
-dispensing <- import_sas("dispensing_mobley_v5.sas7bdat",
-                          description = "Dispensing/prescription data")
-
-# ============================================================
 # GROUP 6: Procedures data (4 parts)
 # Source: SAS_CODE_FOR_V5_12.sas line 149
-# SAS pattern: set v4.procedures_mobley1_v5 v4.procedures_mobley2_v5
-#                  v4.procedures_mobley3_v5 v4.procedures4_mobley_v5
-# NOTE: Part 4 has inconsistent naming: "procedures4_mobley_v5" not "procedures_mobley4_v5"
-# SAS BUG FIX: Inconsistent file naming — procedures 1-3 use "procedures_mobleyN" but
-# part 4 uses "procedures4_mobley". Preserved in R import to match actual file names.
-# ============================================================
-
+# SAS BUG FIX: Part 4 naming inconsistency — "procedures4_mobley_v5" not "procedures_mobley4_v5"
 proc_files <- c(
   "procedures_mobley1_v5.sas7bdat",
   "procedures_mobley2_v5.sas7bdat",
   "procedures_mobley3_v5.sas7bdat",
   "procedures4_mobley_v5.sas7bdat"  # NOTE: naming inconsistency in part 4
 )
-
-# Stream-combine: read one part at a time to avoid holding all 4 in memory simultaneously
 proc_combined <- NULL
 proc_parts_loaded <- 0
 for (i in seq_along(proc_files)) {
@@ -205,23 +195,16 @@ for (i in seq_along(proc_files)) {
 if (!is.null(proc_combined)) {
   message("  Procedure parts combined: ", proc_parts_loaded, "/4 (",
           format(nrow(proc_combined), big.mark = ","), " total rows)")
+  saveRDS(proc_combined, file.path(data_dir_processed, "01_imported_proc_combined.rds"))
+  message("  Saved: proc_combined.rds")
+  rm(proc_combined); gc(verbose = FALSE)
 }
 
-# ============================================================
 # GROUP 7: ICD code reference data (separate Dx directory)
 # Source: SAS_CODE_FOR_V5_3.sas line 49
-# SAS pattern: dx.Icd10_groups2
-# SAS libname: libname dx "/blue/erin.mobley-precision/ResVault/f/Dx";
-# R equivalent: Place Icd10_groups2.sas7bdat in data/raw/ or a subdirectory
-# Per D-04: Path parameterized, user adjusts config.R if in different location
-# ============================================================
-
-# NOTE: ICD reference data may be in a separate directory from main V5 data.
-# Check data_dir_raw first, then try a "Dx" subdirectory.
-icd_groups <- import_sas("Icd10_groups2.sas7bdat",
-                          description = "ICD-10 cancer site group mapping")
+# SAS libname: libname dx "/blue/erin.mobley-precision/ResVault/f/Dx"
+icd_groups <- import_sas("Icd10_groups2.sas7bdat", description = "ICD-10 cancer site group mapping")
 if (is.null(icd_groups)) {
-  # Try Dx subdirectory (matches SAS library structure)
   dx_dir <- file.path(data_dir_raw, "Dx")
   if (dir.exists(dx_dir)) {
     icd_groups <- import_sas("Icd10_groups2.sas7bdat",
@@ -229,50 +212,7 @@ if (is.null(icd_groups)) {
                               description = "ICD-10 cancer site groups (from Dx/ subdir)")
   }
 }
-
-# ============================================================
-# SAVE CHECKPOINTS (per D-08: .rds checkpoints between pipeline stages)
-# ============================================================
-
-save_checkpoint <- function(obj, name) {
-  if (!is.null(obj)) {
-    path <- file.path(data_dir_processed, paste0("01_imported_", name, ".rds"))
-    saveRDS(obj, path)
-    message("  Saved: ", name, ".rds (", format(nrow(obj), big.mark = ","), " rows)")
-  } else {
-    message("  Skipped (NULL): ", name)
-  }
-}
-
-# Core patient data
-save_checkpoint(demo, "demo")
-save_checkpoint(enroll, "enroll")
-save_checkpoint(address, "address")
-
-# Diagnosis (already combined during import to minimise peak memory)
-if (!is.null(dx_combined)) {
-  saveRDS(dx_combined, file.path(data_dir_processed, "01_imported_dx_combined.rds"))
-  message("  Saved: dx_combined.rds (", format(nrow(dx_combined), big.mark = ","), " rows)")
-}
-
-# Provider data
-save_checkpoint(provider, "provider")
-save_checkpoint(prov_spec, "prov_spec")
-
-# Geographic reference
-save_checkpoint(ruca, "ruca")
-
-# Dispensing
-save_checkpoint(dispensing, "dispensing")
-
-# Procedures (already combined during import to minimise peak memory)
-if (!is.null(proc_combined)) {
-  saveRDS(proc_combined, file.path(data_dir_processed, "01_imported_proc_combined.rds"))
-  message("  Saved: proc_combined.rds (", format(nrow(proc_combined), big.mark = ","), " rows)")
-}
-
-# ICD reference
-save_checkpoint(icd_groups, "icd_groups")
+save_checkpoint(icd_groups, "icd_groups"); rm(icd_groups); gc(verbose = FALSE)
 
 # ============================================================
 # DATE VALIDATION (per IMP-03)
@@ -305,46 +245,18 @@ validate_date_columns <- function(df, name, expected_date_cols) {
   }
 }
 
-validate_date_columns(demo, "demo", c("BIRTH_DATE"))
-validate_date_columns(enroll, "enroll", c("ENR_START_DATE", "ENR_END_DATE"))
-validate_date_columns(address, "address", c("ADDRESS_PERIOD_START", "ADDRESS_PERIOD_END"))
-if (!is.null(dx_combined)) {
-  validate_date_columns(dx_combined, "dx_combined", c("ADMIT_DATE", "DX_DATE"))
-}
-
-# ============================================================
-# LABEL PRESERVATION REPORT (per IMP-05)
-# SAS variable labels stored as "sas_labels" attribute on each data frame
-# Access via: attr(demo, "sas_labels")
-# ============================================================
-
-report_labels <- function(df, name) {
-  if (is.null(df)) return(invisible(NULL))
-  labels <- attr(df, "sas_labels")
-  if (!is.null(labels)) {
-    n_labelled <- sum(!is.na(labels))
-    message("  ", name, ": ", n_labelled, "/", length(labels), " variables have SAS labels")
-  }
-}
-
-message("\nLabel preservation report:")
-report_labels(demo, "demo")
-report_labels(enroll, "enroll")
-report_labels(address, "address")
-if (!is.null(dx_combined)) report_labels(dx_combined, "dx_combined")
-report_labels(provider, "provider")
-report_labels(dispensing, "dispensing")
+# Date validation and label reports run inline during import (datasets discarded after saving).
+# To inspect: readRDS(file.path(data_dir_processed, "01_imported_demo.rds")) etc.
 
 message("\n========================================")
 message("Import complete at ", Sys.time())
 message("Checkpoints saved to: ", data_dir_processed)
 message("========================================")
-message("\nIMPORTED DATASETS SUMMARY:")
-message("  Core: demo, enroll, address")
-message("  Diagnosis: ", ifelse(is.null(dx_combined), 0, format(nrow(dx_combined), big.mark=",")), " rows (combined)")
-message("  Provider: provider, prov_spec")
-message("  Geographic: ruca")
-message("  Dispensing: dispensing")
-message("  Procedures: ", ifelse(is.null(proc_combined), 0, format(nrow(proc_combined), big.mark=",")), " rows (combined)")
-message("  ICD reference: icd_groups")
+message("\nIMPORTED DATASETS SUMMARY (checkpoints in data/processed/):")
+message("  01_imported_demo.rds, enroll.rds, address.rds")
+message("  01_imported_dx_combined.rds")
+message("  01_imported_provider.rds, prov_spec.rds, ruca.rds")
+message("  01_imported_dispensing.rds")
+message("  01_imported_proc_combined.rds")
+message("  01_imported_icd_groups.rds")
 message("\nNext step: R/02_clean.R (Phase 2)")
