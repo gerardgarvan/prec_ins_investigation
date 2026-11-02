@@ -2,6 +2,54 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+---
+
+## Resume Notes (updated 2026-11-02)
+
+### Task status
+| Task | Status | Commits |
+|------|--------|---------|
+| Task 1: Scaffold | ✅ DONE | `e7e93cd..8e0815f` |
+| Task 2: Populate CSVs | ✅ DONE | `8e0815f..c42b8a5` |
+| Task 3: Preflight checker | ⬜ NOT STARTED | BASE = `c42b8a5` |
+| Task 4: DATA_LINEAGE.md | ⬜ NOT STARTED | — |
+
+### Where to resume
+Start from **Task 3**. BASE commit = `c42b8a5`.
+
+SDD workspace: `.superpowers/sdd/2026-11-02-phase05-data-lineage/` — read `progress.md` there for the full ledger and all rulings before dispatching anything.
+
+Task 3 brief: `bash .claude/plugins/cache/superpowers-marketplace/superpowers/7.0.1/skills/subagent-driven-development/scripts/task-brief docs/plans/2026-11-02-phase05-data-lineage.md 3`
+
+### Decisions made this session
+
+1. **`run_preflight()` defaults must be `NULL`**, resolved inside the function body. Using `data_dir_raw` or `output_dir` directly in function signature defaults causes an R parse error (those variables are top-level, not in scope for default arg evaluation in general). Implementer must do: `run_preflight <- function(manifest_path = NULL, raw_dir = NULL, dx_dirs = NULL, report_dir = NULL, write_reports = TRUE)` and resolve NULLs to config-sourced values at the top of the function body.
+
+2. **GROUP C legacy rows have `sas_filename = NA`** (empty string also acceptable) so the Task 3 probe loop skips them. Filter: `!is.na(sas_filename) & nchar(sas_filename) > 0`.
+
+3. **`Icd10_groups2` status = `must_verify`** (not `mismatch`) — user revision takes precedence over CONTEXT.md D-06.
+
+4. **Mermaid edge labels with `:L<N>`** use quoted label syntax: `-->|"02_clean.R:L45"|` — colons inside Mermaid edge labels require quoting.
+
+### Key findings from Task 2 (carry into Tasks 3–4)
+
+**Confirmed broken pipes** (label as `confirmed` in DATA_LINEAGE.md, not `suspected`):
+- `first_can_ruca` — consumed at `03_covariates.R:171` (`first_ruca = first_can_ruca`) but produced by **no R script**. `zcta.sas7bdat` is imported but never joined to derive RUCA scores.
+- `first_can_sdi_score` — consumed at `03_covariates.R:148` (`first_sdi = first_can_sdi_score`) but produced by **no R script**. Same root cause.
+- `address_history_mobley_v5.sas7bdat` — imported to `01_imported_address.rds` but no downstream script reads it.
+- `zcta.sas7bdat` — imported to `01_imported_zcta.rds` but no downstream script reads it. Manifest `downstream_consumers` already corrected to `NONE — BROKEN PIPE`.
+
+**Stale message in `R/01_import.R:125`** lists `prov_spec.rds` and `ruca.rds` as saved — neither is produced. Pre-existing bug; flagged for final reviewer but not fixed in this phase.
+
+**`source` column** from KEEP_ENC — collides with R's `source()` function name. Naming hazard documented in column_lineage. Label `suspected` in DATA_LINEAGE.md (compiles fine but could cause confusion).
+
+### Unaddressed reviewer feedback (for final reviewer)
+- Task 1: `read_header_cols` fallback message omits the file path. Spec says "log which fallback triggered" (code-path sense, satisfied); path would improve HiPerGator debugging. Minor.
+- Task 2: stale `message()` in `R/01_import.R:125` listing non-existent checkpoints. Pre-existing; out of scope for this phase.
+- Task 2: test coverage for WARN-tier rows only checks ndc_cond2/surgerycodes/sctcodes; prov_spec and ruca rows are present in CSV but not asserted in tests. Minor.
+
+---
+
 **Goal:** Produce four deliverables that account for every SAS input file and how it flows through the R pipeline: `docs/file_manifest.csv`, `docs/column_lineage.csv`, `R/00_check_inputs.R` (standalone HiPerGator preflight checker), and `docs/DATA_LINEAGE.md` (narrative + Mermaid diagrams).
 
 **Architecture:** Static code analysis only — no data is read. The manifest (one row per physical SAS file) and column lineage are built by reading R pipeline scripts. The preflight checker reads the manifest at runtime and probes file headers via `haven::read_sas(n_max = 0)`. The narrative synthesizes everything.
