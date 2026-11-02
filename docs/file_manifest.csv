@@ -1,0 +1,1 @@
+alias,table_group,sas_filename,hipergator_path,r_import_call,r_checkpoint_rds,expected_raw_cols,downstream_consumers,manifest_status,r_import_name,disk_name,notes
