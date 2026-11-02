@@ -36,7 +36,7 @@ message("  Patients: ", format(nrow(analytical), big.mark = ","))
 message("  Variables: ", ncol(analytical))
 
 # Verify no missing values in key covariates (complete-case guarantee)
-key_vars <- c("sex", "race2", "hispanic", "age2", "first_sdi2",
+key_vars <- c("sex", "race2", "hispanic", "age_cat", "first_sdi2",
               "first_ruca", "intensity2", "change_ins", "person_time_days")
 n_missing <- analytical %>%
   summarize(across(all_of(key_vars), ~sum(is.na(.x)))) %>%
@@ -66,7 +66,7 @@ analytical_tbl <- analytical %>%
                    labels = c("White", "African American", "Other")),
     hispanic = factor(hispanic, levels = c("N", "Y"),
                       labels = c("Non-Hispanic", "Hispanic")),
-    age2 = factor(age2, levels = 1:5,
+    age_cat = factor(age_cat, levels = 1:5,
                   labels = c("0-14", "15-39", "40-54", "55-64", "65+")),
     first_sdi2 = factor(first_sdi2, levels = 1:3,
                         labels = c("Low (<=45)", "Medium (46-73)", "High (>=74)")),
@@ -182,7 +182,7 @@ print(freq_intensity)
 
 # 1-way: Age category distribution
 freq_age <- analytical_tbl %>%
-  tabyl(age2) %>%
+  tabyl(age_cat) %>%
   adorn_totals("row") %>%
   adorn_pct_formatting(digits = 1)
 

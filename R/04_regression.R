@@ -63,13 +63,13 @@ message("\n=== Section 3: Model Specification ===")
 # Model predictors per SAS V5_18 PROC GENMOD CLASS/MODEL statements
 # change_ins is primary exposure; others are covariates
 # Per Open Question 3 (04-RESEARCH.md): Theory-driven full model
-model_predictors <- "change_ins + factor(age2) + sex + race2 +
+model_predictors <- "change_ins + factor(age_cat) + sex + race2 +
                      factor(intensity2) + factor(first_sdi2) + first_ruca"
 
 # Label list for gtsummary regression tables
 label_list <- list(
   change_ins ~ "Insurance change",
-  `factor(age2)` ~ "Age category",
+  `factor(age_cat)` ~ "Age category",
   sex ~ "Sex",
   race2 ~ "Race",
   `factor(intensity2)` ~ "Treatment intensity",
@@ -85,7 +85,7 @@ outcome_vars <- c(
   "n_cancer_visit_and_prov"
 )
 
-message("Predictors: change_ins + age2 + sex + race2 + intensity2 + first_sdi2 + first_ruca")
+message("Predictors: change_ins + age_cat + sex + race2 + intensity2 + first_sdi2 + first_ruca")
 message("Outcomes: ", paste(outcome_vars, collapse = ", "))
 message("Offset: log(person_time_days)")
 

@@ -116,11 +116,11 @@ print(janitor::tabyl(analytical, sex))
 
 message("\n=== Section 6: Age Categories ===")
 
-# SAS V5_2 lines 91-96: age2 categories; breakpoints 15/40/55/65 are unchanged.
+# SAS V5_2 lines 91-96: age_cat categories; breakpoints 15/40/55/65 are unchanged.
 # R uses age_at_dx (from birth_date + first_admit_date, with >=120->91 cap per V5_5 line 11).
 analytical <- analytical %>%
   mutate(
-    age2 = case_when(
+    age_cat = case_when(
       age_at_dx < 15 ~ 1L,
       age_at_dx < 40 ~ 2L,
       age_at_dx < 55 ~ 3L,
@@ -131,7 +131,7 @@ analytical <- analytical %>%
   )
 
 message("Age2 distribution:")
-print(janitor::tabyl(analytical, age2))
+print(janitor::tabyl(analytical, age_cat))
 
 # ========================================
 # Section 7 -- SDI Categorization (COV-03, per V5_18)
@@ -229,7 +229,7 @@ print(janitor::tabyl(analytical, intensity2))
 # first_can_ruca -> first_ruca (done above)
 # first_can_sdi_score -> first_sdi (done above)
 # first_can_sexx -> sex (already done)
-# age2 -> age (SAS aliases age2 as "age" in model; keep both)
+# age_cat -> age (SAS aliases age_cat as "age" in model; keep both)
 
 message("\n=== Section 10: Rename Variables ===")
 
@@ -279,7 +279,7 @@ analytical_final <- analytical %>%
     # Demographics (COV-01)
     sex, race, race2, hispanic,
     # Age (COV-02)
-    age_at_dx, age2,
+    age_at_dx, age_cat,
     # SDI (COV-03)
     first_sdi, first_sdi2,
     # RUCA (COV-04)
@@ -312,7 +312,7 @@ message("Analytical dataset dimensions: ", nrow(analytical_final), " patients x 
 
 # Complete-case: remove patients with missing key covariates
 # SAS for_table datasets contain all patients; complete-case filtering is implicit
-# Key covariates for regression: sex, race2, hispanic, first_payer, first_ruca, first_sdi2, age2, intensity
+# Key covariates for regression: sex, race2, hispanic, first_payer, first_ruca, first_sdi2, age_cat, intensity
 
 message("\n=== Section 13: Complete-Case Dataset ===")
 
@@ -320,7 +320,7 @@ analytical_complete <- analytical_final %>%
   filter(
     !is.na(sex), !is.na(race2), !is.na(hispanic),
     !is.na(first_payer), !is.na(first_ruca), !is.na(first_sdi2),
-    !is.na(age_at_dx), !is.na(age2), !is.na(intensity),
+    !is.na(age_at_dx), !is.na(age_cat), !is.na(intensity),
     !is.na(person_time_days), person_time_days > 0
   )
 
@@ -370,7 +370,7 @@ message("Completed: ", Sys.time())
 message("========================================")
 message("\nCovariate Variables Created:")
 message("  race2: 3-category race (WH, AA, OT) per V5_17")
-message("  age2: 5-category age groups per agef format")
+message("  age_cat: 5-category age groups per agef format")
 message("  first_sdi2: SDI tertiles (<=45, <74, <=100) per V5_18")
 message("  first_ruca: RUCA classification (from first_can_ruca)")
 message("  intensity2: 5-category treatment intensity per V5_17")

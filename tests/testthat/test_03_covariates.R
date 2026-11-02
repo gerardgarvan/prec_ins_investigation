@@ -54,14 +54,14 @@ test_that("COV-01: demographics recoded with PCORnet CDM labels", {
 })
 
 # ==============================================================================
-# COV-02: Age categories match SAS age2 groupings
+# COV-02: Age categories match SAS age_cat groupings
 # ==============================================================================
 
-test_that("COV-02: age categories match SAS age2 groupings", {
+test_that("COV-02: age categories match SAS age_cat groupings", {
   # age is computed from birth_date + first_admit_date (no age column in raw data).
   # SAS V5_2 line 78: age=floor((today-BIRTH_DATE)/365.25)
   # R: age_at_dx = floor(as.numeric(first_admit_date - birth_date) / 365.25)
-  # age2: <15->1, <40->2, <55->3, <65->4, else->5 (SAS V5_2 lines 91-96)
+  # age_cat: <15->1, <40->2, <55->3, <65->4, else->5 (SAS V5_2 lines 91-96)
 
   # Build age_at_dx from fixture birth_dates and first cancer encounter admit_dates.
   first_dx_dates <- mock_p3_dx %>%
@@ -79,7 +79,7 @@ test_that("COV-02: age categories match SAS age2 groupings", {
     left_join(first_dx_dates, by = "patid") %>%
     mutate(
       age_at_dx = floor(as.numeric(first_admit_date - birth_date) / 365.25),
-      age2 = case_when(
+      age_cat = case_when(
         age_at_dx < 15 ~ 1L,
         age_at_dx < 40 ~ 2L,
         age_at_dx < 55 ~ 3L,
@@ -89,16 +89,16 @@ test_that("COV-02: age categories match SAS age2 groupings", {
       )
     )
 
-  # Expected age2 per fixture birth_dates / encounter dates:
-  # P101: born 1960-03-15, first cancer 2019-08-15 -> ~59 -> age2=4 (55-64)
-  # P102: born 1952-06-20, first cancer 2019-09-12 -> ~67 -> age2=5 (65+)
-  # P105: born 1984-09-25, first cancer 2020-01-08 -> ~35 -> age2=2 (15-40)
-  # P109: born 2010-02-14, first cancer 2019-09-05 -> ~9  -> age2=1 (0-14)
+  # Expected age_cat per fixture birth_dates / encounter dates:
+  # P101: born 1960-03-15, first cancer 2019-08-15 -> ~59 -> age_cat=4 (55-64)
+  # P102: born 1952-06-20, first cancer 2019-09-12 -> ~67 -> age_cat=5 (65+)
+  # P105: born 1984-09-25, first cancer 2020-01-08 -> ~35 -> age_cat=2 (15-40)
+  # P109: born 2010-02-14, first cancer 2019-09-05 -> ~9  -> age_cat=1 (0-14)
 
-  expect_equal(demo_with_age %>% filter(patid == "P101") %>% pull(age2), 4L)
-  expect_equal(demo_with_age %>% filter(patid == "P102") %>% pull(age2), 5L)
-  expect_equal(demo_with_age %>% filter(patid == "P105") %>% pull(age2), 2L)
-  expect_equal(demo_with_age %>% filter(patid == "P109") %>% pull(age2), 1L)
+  expect_equal(demo_with_age %>% filter(patid == "P101") %>% pull(age_cat), 4L)
+  expect_equal(demo_with_age %>% filter(patid == "P102") %>% pull(age_cat), 5L)
+  expect_equal(demo_with_age %>% filter(patid == "P105") %>% pull(age_cat), 2L)
+  expect_equal(demo_with_age %>% filter(patid == "P109") %>% pull(age_cat), 1L)
 })
 
 # ==============================================================================
