@@ -41,6 +41,10 @@ KEEP_PROC <- c("ID", "PROCEDURESID", "ENCOUNTERID", "PX", "PX_TYPE",
 KEEP_DISP <- c("ID", "DISPENSINGID", "NDC", "DISPENSE_DATE",
                "DISPENSE_SUP", "DISPENSE_AMT")
 
+KEEP_ENC <- c("ID", "ENCOUNTERID", "ADMIT_DATE", "DISCHARGE_DATE", "ENC_TYPE",
+              "DISCHARGE_STATUS", "DISCHARGE_DISPOSITION", "PAYER_TYPE_PRIMARY",
+              "PAYER_TYPE_SECONDARY", "PROVIDERID", "FACILITYID", "DRG", "SOURCE")
+
 message("========================================")
 message("Starting SAS data import at ", Sys.time())
 message("Data directory: ", data_dir_raw)
@@ -100,6 +104,14 @@ import_parts(
             "procedures4_mobley_v5.sas7bdat"),
   description = "proc",
   keep_cols   = KEEP_PROC
+)
+
+# GROUP 6b: Encounter data (2 parts — moved here from 02_clean.R to use save-and-discard pattern)
+# Each part saved individually to blue; 02_clean.R reads RDS files instead of raw SAS.
+import_parts(
+  files       = c("encounter1_mobley_v5.sas7bdat", "encounter2_mobley_v5.sas7bdat"),
+  description = "enc",
+  keep_cols   = KEEP_ENC
 )
 
 # GROUP 7: ICD code reference data (separate Dx directory)

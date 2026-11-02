@@ -40,27 +40,16 @@ message("========================================")
 
 source(here::here("R", "utils_import.R"))
 
-# Encounter columns used downstream (02_clean.R -> 04_regression.R).
-# Add names here if a later script needs another ENCOUNTER field. NULL = all columns.
-KEEP_ENC <- c("ID", "ENCOUNTERID", "ADMIT_DATE", "DISCHARGE_DATE", "ENC_TYPE",
-              "DISCHARGE_STATUS", "DISCHARGE_DISPOSITION", "PAYER_TYPE_PRIMARY",
-              "PAYER_TYPE_SECONDARY", "PROVIDERID", "FACILITYID", "DRG", "SOURCE")
-
 # ========================================
-# Section 3 -- Encounter Import (per D-07, CLN-02)
+# Section 3 -- Encounter Load (CLN-02)
 # ========================================
 
-# Per D-07: Import encounter files at top of 02_clean.R (NOT in 01_import.R)
-# SAS source: HL_IDS_1_9_2025.sas lines 73-74
-# SAS pattern: data encounters; set v3.encounter1_mobley_v5 v3.encounter2_mobley_v5; run;
-# CLN-02: Import and combine encounters (R equivalent of SAS SET statement)
-# Encounters are imported directly here (not via import_parts) so they stay as a data frame.
-enc1 <- import_sas("encounter1_mobley_v5.sas7bdat", description = "Encounter part 1 of 2",
-                   keep_cols = KEEP_ENC)
-enc2 <- import_sas("encounter2_mobley_v5.sas7bdat", description = "Encounter part 2 of 2",
-                   keep_cols = KEEP_ENC)
-encounters <- dplyr::bind_rows(enc1, enc2)
-rm(enc1, enc2); gc(verbose = FALSE)
+# Encounters were imported and saved as individual RDS parts during Phase 1 (01_import.R).
+# Read and combine them here — no raw SAS import needed in Phase 2.
+enc_part_files <- sort(list.files(data_dir_processed, pattern = "01_imported_enc_part\\d+\\.rds",
+                                   full.names = TRUE))
+encounters <- purrr::map(enc_part_files, readRDS) |> dplyr::bind_rows()
+rm(enc_part_files); gc(verbose = FALSE)
 message("Encounter rows: ", format(nrow(encounters), big.mark = ","))
 
 # NOTE: janitor::clean_names() already applied in import_sas() -- do NOT reapply
