@@ -7,9 +7,14 @@
 # SAS Source: V5_8 (encounter-level flags), V5_9 (aggregation pattern),
 #             V5_11 (person-time), V5_15 (person_time_days)
 #
-# Inputs:  data/processed/03_exposure.rds (from 03_exposure.R — cohort with exposures)
-#          data/processed/02_merged_complete.rds (encounter-level data with dx + provider)
-#          data/processed/02_merged_enc_dx.rds (encounter-dx data)
+# Inputs:  data/processed/03_exposure.rds       (from 03_exposure.R — cohort with exposures)
+#          data/processed/02_merged_complete.rds  (one row per encounter; carries
+#                                                  any_reportable_cancer and icd_personal_trt
+#                                                  from 02_dx_encounter.rds via one-to-one join)
+#
+# NOTE: 02_merged_enc_dx.rds is no longer produced. icd_personal_trt was moved
+# from per-dx-row computation here to per-encounter pre-aggregation in 02_clean.R,
+# so merged_complete already carries the flag — no raw dx rows needed.
 # Outputs: data/processed/03_outcomes.rds
 
 # ========================================
@@ -37,16 +42,13 @@ message("========================================")
 # Load Phase 3 cohort with exposures
 cohort <- readRDS(file.path(data_dir_processed, "03_exposure.rds"))
 
-# Load merged encounter data (with provider + dx)
+# merged_complete: one row per encounter, carries any_reportable_cancer and
+# icd_personal_trt (pre-aggregated in 02_clean.R from all dx rows per encounter).
 merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds"))
 
-# Load merged encounter-dx data (for backup if needed)
-merged_enc_dx <- readRDS(file.path(data_dir_processed, "02_merged_enc_dx.rds"))
-
 message("Loaded datasets:")
-message("  cohort: ", format(nrow(cohort), big.mark = ","), " patients")
-message("  merged_complete: ", format(nrow(merged_complete), big.mark = ","), " encounter rows")
-message("  merged_enc_dx: ", format(nrow(merged_enc_dx), big.mark = ","), " encounter-dx rows")
+message("  cohort:          ", format(nrow(cohort),          big.mark = ","), " patients")
+message("  merged_complete: ", format(nrow(merged_complete), big.mark = ","), " encounter rows (one per encounter)")
 
 # ========================================
 # Section 3 -- Filter to Follow-Up Encounters Only
@@ -86,21 +88,17 @@ message("Follow-up encounters: ", format(nrow(followup_encounters), big.mark = "
 
 message("\n=== Section 4: Encounter-Level Visit Type Flags ===")
 
-# ICD personal treatment history codes (SAS V5_8 line 81)
-icd_personal_trt_codes <- c("V87.41", "V87.42", "V87.43", "V87.46", "V15.3",
-                             "Z92.21", "Z92.22", "Z92.23", "Z92.25", "Z92.3")
-
 followup_encounters <- followup_encounters %>%
   mutate(
     # OUT-01: Non-acute care (SAS V5_8 line 77)
     # if ENC_TYPE in ('AV' 'TH') then Enc_nonacute_care=1; else Enc_nonacute_care=0;
     Enc_nonacute_care = if_else(enc_type %in% c("AV", "TH"), 1L, 0L),
 
-    # ICD personal treatment history codes (SAS V5_8 line 81)
-    # if dx in ('V87.41' 'V87.42' ...) then ICD_personal_trt=1; else ICD_personal_trt=0;
-    ICD_personal_trt = if_else(
-      dx %in% icd_personal_trt_codes, 1L, 0L
-    ),
+    # ICD_personal_trt: pre-computed in 02_clean.R (V5_8 line 81).
+    # Was formerly derived from raw dx column (one row per dx); now carried
+    # as a per-encounter max flag in merged_complete via 02_dx_encounter.rds.
+    # Codes: V87.41, V87.42, V87.43, V87.46, V15.3, Z92.21-Z92.23, Z92.25, Z92.3
+    ICD_personal_trt = replace_na(icd_personal_trt, 0L),
 
     # OUT-02: Cancer-related visit (SAS V5_8 line 93)
     # if Enc_nonacute_care=1 AND any_reportable_cancer=1 then Cancer_related_visit=1; else 0
