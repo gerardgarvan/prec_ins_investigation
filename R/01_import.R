@@ -55,15 +55,9 @@ message("========================================")
 
 # GROUP 1: Core patient data (small; read in full)
 # Source: SAS_CODE_FOR_V5_2.sas lines 39-97
-demo <- import_sas("demographic_mobley_v5.sas7bdat", description = "Patient demographics")
-save_checkpoint(demo, "demo"); rm(demo); gc(verbose = FALSE)
-
-enroll <- import_sas("enrollment_mobley_v5.sas7bdat", description = "Patient enrollment periods")
-save_checkpoint(enroll, "enroll"); rm(enroll); gc(verbose = FALSE)
-
-address <- import_sas("address_history_mobley_v5.sas7bdat",
-                      description = "Address history for RUCA/SDI linkage")
-save_checkpoint(address, "address"); rm(address); gc(verbose = FALSE)
+import_and_save("demographic_mobley_v5.sas7bdat",   "demo",    "Patient demographics")
+import_and_save("enrollment_mobley_v5.sas7bdat",    "enroll",  "Patient enrollment periods")
+import_and_save("address_history_mobley_v5.sas7bdat","address", "Address history for RUCA/SDI linkage")
 
 # GROUP 2: Diagnosis data (7 parts — SAS concatenates with SET statement)
 # Source: SAS_CODE_FOR_V5_2.sas lines 100-108
@@ -76,22 +70,14 @@ import_parts(
 )
 
 # GROUP 3: Provider data (specialty included in same file — no separate prov_spec)
-# Source: SAS_CODE_FOR_V5_2.sas lines 11-20
-provider <- import_sas("provider_mobley_v5.sas7bdat", description = "Provider data (with specialty)")
-save_checkpoint(provider, "provider"); rm(provider); gc(verbose = FALSE)
+import_and_save("provider_mobley_v5.sas7bdat", "provider", "Provider data (with specialty)")
 
 # GROUP 4: Geographic reference data (ZCTA-based)
-# Source: SAS_CODE_FOR_V5_2.sas lines 27-37
-# NOTE: actual file is zcta.sas7bdat (not ruca.sas7bdat)
-zcta <- import_sas("zcta.sas7bdat", description = "ZCTA geographic reference (SDI/RUCA linkage)")
-save_checkpoint(zcta, "zcta"); rm(zcta); gc(verbose = FALSE)
+import_and_save("zcta.sas7bdat", "zcta", "ZCTA geographic reference (SDI/RUCA linkage)")
 
 # GROUP 5: Dispensing/prescription data
-# Source: SAS_CODE_FOR_V5_12.sas lines 22-29
-dispensing <- import_sas("dispensing_mobley_v5.sas7bdat",
-                         description = "Dispensing/prescription data",
-                         keep_cols = KEEP_DISP)
-save_checkpoint(dispensing, "dispensing"); rm(dispensing); gc(verbose = FALSE)
+import_and_save("dispensing_mobley_v5.sas7bdat", "dispensing", "Dispensing/prescription data",
+                keep_cols = KEEP_DISP)
 
 # GROUP 6: Procedures data (4 parts)
 # Source: SAS_CODE_FOR_V5_12.sas line 149
@@ -114,17 +100,20 @@ import_parts(
   keep_cols   = KEEP_ENC
 )
 
-# GROUP 7: ICD code reference data (separate Dx directory)
-# Source: SAS_CODE_FOR_V5_3.sas line 49
-icd_groups <- import_sas("Icd10_groups2.sas7bdat", description = "ICD-10 cancer site group mapping")
-if (is.null(icd_groups)) {
-  dx_dir <- file.path(data_dir_raw, "Dx")
-  if (dir.exists(dx_dir)) {
-    icd_groups <- import_sas("Icd10_groups2.sas7bdat", data_dir = dx_dir,
-                             description = "ICD-10 cancer site groups (from Dx/ subdir)")
+# GROUP 7: ICD code reference data
+out_icd <- file.path(data_dir_processed, "01_imported_icd_groups.rds")
+if (file.exists(out_icd)) {
+  message("  Skipping icd_groups — RDS already exists")
+} else {
+  icd_groups <- import_sas("Icd10_groups2.sas7bdat", description = "ICD-10 cancer site group mapping")
+  if (is.null(icd_groups)) {
+    dx_dir <- file.path(data_dir_raw, "Dx")
+    if (dir.exists(dx_dir))
+      icd_groups <- import_sas("Icd10_groups2.sas7bdat", data_dir = dx_dir,
+                               description = "ICD-10 cancer site groups (from Dx/ subdir)")
   }
+  save_checkpoint(icd_groups, "icd_groups"); rm(icd_groups); gc(verbose = FALSE)
 }
-save_checkpoint(icd_groups, "icd_groups"); rm(icd_groups); gc(verbose = FALSE)
 
 message("\n========================================")
 message("Import complete at ", Sys.time())

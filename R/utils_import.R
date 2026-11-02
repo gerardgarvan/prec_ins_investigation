@@ -97,12 +97,17 @@ import_sas <- function(filename, data_dir = data_dir_raw, description = filename
 import_parts <- function(files, description, keep_cols = NULL, data_dir = data_dir_raw) {
   saved_paths <- character(0)
   for (i in seq_along(files)) {
+    out_path <- file.path(data_dir_processed,
+                          paste0("01_imported_", tolower(description), "_part", i, ".rds"))
+    if (file.exists(out_path)) {
+      message("  Skipping ", description, " part ", i, " — RDS already exists: ", basename(out_path))
+      saved_paths <- c(saved_paths, out_path)
+      next
+    }
     part <- import_sas(files[i], data_dir = data_dir,
                        description = paste0(description, " part ", i, " of ", length(files)),
                        keep_cols = keep_cols)
     if (!is.null(part)) {
-      out_path <- file.path(data_dir_processed,
-                            paste0("01_imported_", tolower(description), "_part", i, ".rds"))
       saveRDS(part, out_path)
       message("    Saved part ", i, " -> ", basename(out_path))
       saved_paths <- c(saved_paths, out_path)
@@ -110,7 +115,7 @@ import_parts <- function(files, description, keep_cols = NULL, data_dir = data_d
     }
   }
   message("  ", description, ": ", length(saved_paths), "/", length(files),
-          " parts saved to disk individually")
+          " parts on disk")
   saved_paths
 }
 
@@ -123,4 +128,18 @@ save_checkpoint <- function(obj, name, prefix = "01_imported_") {
   } else {
     message("  Skipped (NULL): ", name)
   }
+}
+
+#' Import a single SAS file and save checkpoint, skipping if RDS already exists
+import_and_save <- function(filename, name, description, keep_cols = NULL,
+                            data_dir = data_dir_raw, prefix = "01_imported_") {
+  out_path <- file.path(data_dir_processed, paste0(prefix, name, ".rds"))
+  if (file.exists(out_path)) {
+    message("  Skipping ", name, " — RDS already exists: ", basename(out_path))
+    return(invisible(NULL))
+  }
+  obj <- import_sas(filename, data_dir = data_dir, description = description,
+                    keep_cols = keep_cols)
+  save_checkpoint(obj, name, prefix = prefix)
+  rm(obj); gc(verbose = FALSE)
 }
