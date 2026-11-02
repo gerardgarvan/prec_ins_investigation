@@ -71,6 +71,10 @@ Plan: 3 of 3
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 5 added: Data lineage and file inventory: account for the location of every input file and how it flows through the pipeline
+
 ### Decisions Made
 
 | Date | Decision | Rationale | Impact |
