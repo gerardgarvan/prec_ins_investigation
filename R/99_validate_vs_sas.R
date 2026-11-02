@@ -226,4 +226,64 @@ if (is.null(r_cohort)) {
   }
 }
 
+# -----------------------------------------------------------
+# CHECK 7: Geographic covariate agreement (RUCA + SDI)
+# -----------------------------------------------------------
+message("=== CHECK 7: Geographic covariate agreement (RUCA + SDI) ===")
+
+geo_path <- file.path(data_dir_processed, "03_geo.rds")
+if (!file.exists(geo_path)) {
+  message("  SKIPPED — 03_geo.rds not available (run 03_geo.R first)")
+} else {
+  r_geo <- readRDS(geo_path)
+
+  # Check that SAS baseline has RUCA and SDI columns; look for both possible naming conventions
+  sas_ruca_col <- if ("first_can_ruca"  %in% names(sas_baseline)) "first_can_ruca"  else
+                  if ("first_ruca"      %in% names(sas_baseline)) "first_ruca"      else NA_character_
+  sas_sdi_col  <- if ("first_can_sdi_score" %in% names(sas_baseline)) "first_can_sdi_score" else
+                  if ("first_sdi"           %in% names(sas_baseline)) "first_sdi"           else NA_character_
+
+  if (is.na(sas_ruca_col) && is.na(sas_sdi_col)) {
+    message("  SKIPPED — neither RUCA nor SDI columns found in SAS baseline")
+    message("  Available SAS columns: ", paste(names(sas_baseline), collapse = ", "))
+  } else {
+
+    if (!is.na(sas_ruca_col)) {
+      # RUCA: exact-match agreement rate on first_can_ruca for shared patients
+      shared_ruca <- inner_join(
+        sas_baseline |> select(id, sas_ruca = !!sym(sas_ruca_col)),
+        r_geo        |> select(patid, r_ruca = first_can_ruca),
+        by = c("id" = "patid")
+      )
+      ruca_agree <- mean(shared_ruca$sas_ruca == shared_ruca$r_ruca, na.rm = TRUE)
+      message("  RUCA exact-match agreement: ", round(100 * ruca_agree, 2),
+              "% (N shared = ", nrow(shared_ruca), "; SAS col: ", sas_ruca_col, ")")
+      if (ruca_agree < 0.99) {
+        message("  WARNING: RUCA agreement < 99% — review 3-step address window logic in 03_geo.R")
+      }
+    } else {
+      message("  RUCA: SKIPPED — first_can_ruca / first_ruca not found in SAS baseline")
+    }
+
+    if (!is.na(sas_sdi_col)) {
+      # SDI: report exact-match AND within-1 agreement for shared patients
+      shared_sdi <- inner_join(
+        sas_baseline |> select(id, sas_sdi = !!sym(sas_sdi_col)),
+        r_geo        |> select(patid, r_sdi = first_can_sdi_score),
+        by = c("id" = "patid")
+      )
+      sdi_exact  <- mean(shared_sdi$sas_sdi == shared_sdi$r_sdi, na.rm = TRUE)
+      sdi_within1 <- mean(abs(shared_sdi$sas_sdi - shared_sdi$r_sdi) <= 1, na.rm = TRUE)
+      message("  SDI exact-match agreement:  ", round(100 * sdi_exact, 2),
+              "% (N shared = ", nrow(shared_sdi), "; SAS col: ", sas_sdi_col, ")")
+      message("  SDI within-1 agreement:     ", round(100 * sdi_within1, 2), "%")
+      if (sdi_within1 < 0.95) {
+        message("  WARNING: SDI within-1 agreement < 95% — review 00_build_sdi.R column choice (percentile vs z-score)")
+      }
+    } else {
+      message("  SDI: SKIPPED — first_can_sdi_score / first_sdi not found in SAS baseline")
+    }
+  }
+}
+
 message("=== Validation complete ===")
