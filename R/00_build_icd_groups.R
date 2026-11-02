@@ -65,8 +65,26 @@ icd10_lookup <- icd10_raw %>%
 message("ForSAS_ICD10: ", nrow(icd10_lookup), " rows")
 
 # ---- Step 3: merge crosswalk + icd10_lookup on icd10 (SAS: dx.icd10_groups1) ----
+# Log icd10 codes that map to >1 distinct group_site before the join so the
+# many-to-many relationship is visible rather than silent.
+icd10_dupes <- icd10_lookup %>%
+  distinct(icd10, group_site) %>%
+  count(icd10, name = "n_sites") %>%
+  filter(n_sites > 1)
+if (nrow(icd10_dupes) > 0) {
+  message("  NOTE: ", nrow(icd10_dupes),
+          " icd10 codes map to multiple group_site values (kept per SAS nodupkey):")
+  print(
+    icd10_lookup %>%
+      semi_join(icd10_dupes, by = "icd10") %>%
+      distinct(icd10, group_site) %>%
+      arrange(icd10)
+  )
+}
+
 icd10_groups1 <- crosswalk %>%
-  left_join(icd10_lookup %>% select(icd10, group_site), by = "icd10") %>%
+  left_join(icd10_lookup %>% select(icd10, group_site),
+            by = "icd10", relationship = "many-to-many") %>%
   mutate(group_site = if_else(is.na(group_site) | group_site == "",
                               "Reportable but not mapped above", group_site))
 
