@@ -79,15 +79,11 @@ import_and_save("zcta.sas7bdat", "zcta", "ZCTA geographic reference (SDI/RUCA li
 import_and_save("dispensing_mobley_v5.sas7bdat", "dispensing", "Dispensing/prescription data",
                 keep_cols = KEEP_DISP)
 
-# GROUP 6: Procedures data (4 parts)
+# GROUP 6: Procedures data (7 parts — procedures_mobley1_v5 through procedures_mobley7_v5)
 # Source: SAS_CODE_FOR_V5_12.sas line 149
-# SAS BUG FIX: Part 4 naming inconsistency — "procedures4_mobley_v5"
 # Each part saved individually; combined in 02_clean.R after patient filtering.
 import_parts(
-  files = c("procedures_mobley1_v5.sas7bdat",
-            "procedures_mobley2_v5.sas7bdat",
-            "procedures_mobley3_v5.sas7bdat",
-            "procedures4_mobley_v5.sas7bdat"),
+  files = paste0("procedures_mobley", 1:7, "_v5.sas7bdat"),
   description = "proc",
   keep_cols   = KEEP_PROC
 )
@@ -120,10 +116,12 @@ message("Import complete at ", Sys.time())
 message("Checkpoints saved to: ", data_dir_processed)
 message("========================================")
 message("\nIMPORTED DATASETS SUMMARY (checkpoints in data/processed/):")
-message("  01_imported_demo.rds, enroll.rds, address.rds")
-message("  01_imported_dx_combined.rds")
-message("  01_imported_provider.rds, prov_spec.rds, ruca.rds")
+message("  01_imported_demo.rds, 01_imported_enroll.rds, 01_imported_address.rds")
+message("  01_imported_dx_part1.rds .. 01_imported_dx_part7.rds")
+message("  01_imported_provider.rds")
+message("  01_imported_zcta.rds")
 message("  01_imported_dispensing.rds")
-message("  01_imported_proc_combined.rds")
+message("  01_imported_proc_part1.rds .. 01_imported_proc_part7.rds")
+message("  01_imported_enc_part1.rds, 01_imported_enc_part2.rds")
 message("  01_imported_icd_groups.rds")
 message("\nNext step: R/02_clean.R (Phase 2)")

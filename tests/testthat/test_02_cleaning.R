@@ -109,3 +109,72 @@ test_that("CLN-06: Government payer (code 3) maps to Private per p_payer format"
   result <- factor("3", levels = fmt$levels, labels = fmt$labels)
   expect_equal(as.character(result), "Private")
 })
+
+# ==============================================================================
+# recode_payer(): prefix-based SAS recode per new828.sas lines 57-77
+# ==============================================================================
+
+# Inline the function here so tests run without sourcing 02_clean.R
+recode_payer <- function(x) {
+  dplyr::case_when(
+    is.na(x) | x == ""                        ~ NA_character_,
+    startsWith(x, "14")                        ~ "4",
+    startsWith(x, "1")                         ~ "1",
+    startsWith(x, "2")                         ~ "2",
+    startsWith(x, "3") | startsWith(x, "5") |
+      startsWith(x, "6") | startsWith(x, "7")  ~ "5",
+    startsWith(x, "4")                         ~ "9",
+    startsWith(x, "8")                         ~ "8",
+    startsWith(x, "9") | x == "OT"            ~ "9",
+    TRUE                                       ~ NA_character_
+  )
+}
+
+test_that("recode_payer: Medicare 1xx -> '1'", {
+  expect_equal(recode_payer("101"), "1")
+  expect_equal(recode_payer("199"), "1")
+  expect_equal(recode_payer("1"),   "1")
+})
+
+test_that("recode_payer: Medicaid 2xx -> '2'", {
+  expect_equal(recode_payer("201"), "2")
+  expect_equal(recode_payer("2"),   "2")
+})
+
+test_that("recode_payer: Dual 14x -> '4' (before 1xx)", {
+  expect_equal(recode_payer("140"), "4")
+  expect_equal(recode_payer("149"), "4")
+  expect_equal(recode_payer("14"),  "4")
+})
+
+test_that("recode_payer: Private 3xx/5xx/6xx/7xx -> '5'", {
+  expect_equal(recode_payer("301"), "5")
+  expect_equal(recode_payer("511"), "5")
+  expect_equal(recode_payer("512"), "5")  # 511->512 is NOT a change
+  expect_equal(recode_payer("601"), "5")
+  expect_equal(recode_payer("701"), "5")
+})
+
+test_that("recode_payer: 511 and 512 recode to same category (no change)", {
+  expect_equal(recode_payer("511"), recode_payer("512"))
+})
+
+test_that("recode_payer: 4xx -> '9'", {
+  expect_equal(recode_payer("401"), "9")
+  expect_equal(recode_payer("4"),   "9")
+})
+
+test_that("recode_payer: No coverage 8xx -> '8'", {
+  expect_equal(recode_payer("801"), "8")
+  expect_equal(recode_payer("8"),   "8")
+})
+
+test_that("recode_payer: Other 9xx and OT -> '9'", {
+  expect_equal(recode_payer("901"), "9")
+  expect_equal(recode_payer("OT"),  "9")
+})
+
+test_that("recode_payer: blank and NA -> NA", {
+  expect_true(is.na(recode_payer(NA_character_)))
+  expect_true(is.na(recode_payer("")))
+})

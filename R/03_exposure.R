@@ -275,7 +275,7 @@ for (i in 1:nrow(site_dist)) {
 
 message("\n=== Section 10: Insurance Change Variable ===")
 
-# Derive last_payer from encounter data
+# Derive last_payer from encounter data (recoded category — 511->512 is NOT a change)
 # Filter to encounters AFTER first cancer diagnosis
 last_encounter_payer <- merged_complete %>%
   inner_join(cohort %>% select(patid, first_admit_date), by = "patid") %>%
@@ -284,23 +284,21 @@ last_encounter_payer <- merged_complete %>%
   group_by(patid) %>%
   slice_head(n = 1) %>%
   ungroup() %>%
-  select(patid, last_payer = payer_type_primary, last_admit_date = admit_date)
+  select(patid, last_payer_recoded = payer_primary_recoded, last_admit_date = admit_date)
 
-message("  Patients with last_payer: ", nrow(last_encounter_payer))
+message("  Patients with last_payer_recoded: ", nrow(last_encounter_payer))
 
-# Merge and compute change_ins
+# Merge and compute change_ins — compare RECODED categories, not raw codes.
+# 511->512 both recode to '5' (private), so change_ins=0 for that transition.
 cohort <- cohort %>%
   left_join(last_encounter_payer, by = "patid") %>%
+  rename(last_payer = last_payer_recoded) %>%
   mutate(
-    # SAS V5_15 line 202-204: change_ins=0 if same, 1 if different
-    # EDGE CASE: If first_payer or last_payer is NA, change_ins is NA
-    # SAS treats missing comparison as false (missing ^= non-missing -> TRUE in some contexts)
-    # But per SAS V5_15 line 202: change_ins=. (missing) before IF statements
-    # So if first_payer or last_payer missing, change_ins stays missing
+    # SAS V5_15 line 202-204: change_ins=0 if same recoded category, 1 if different
     change_ins = case_when(
-      is.na(first_can_payer_type_primary) | is.na(last_payer) ~ NA_integer_,
-      first_can_payer_type_primary == last_payer ~ 0L,
-      first_can_payer_type_primary != last_payer ~ 1L,
+      is.na(first_can_payer_recoded) | is.na(last_payer) ~ NA_integer_,
+      first_can_payer_recoded == last_payer ~ 0L,
+      first_can_payer_recoded != last_payer ~ 1L,
       TRUE ~ NA_integer_
     )
   )

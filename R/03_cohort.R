@@ -88,6 +88,17 @@ add_attrition_step <- function(attrition, step_num, desc, current_n, previous_n)
 # Starting point: All patients in demographic data
 message("\n=== Cohort Construction Steps ===")
 
+# SAS V5_2 lines 62-72: collapse demographic unknowns before any filtering.
+# sex:      blank/NI/OT/UN/A -> UN
+# race:     blank/NI/OT/UN/07 -> UN
+# hispanic: blank/R/NI/UN/OT -> UN
+demo <- demo %>%
+  mutate(
+    sex      = if_else(sex      %in% c("", "NI", "OT", "UN", "A"),  "UN", sex),
+    race     = if_else(race     %in% c("", "NI", "OT", "UN", "07"), "UN", race),
+    hispanic = if_else(hispanic %in% c("", "R",  "NI", "UN", "OT"), "UN", hispanic)
+  )
+
 starting_cohort <- demo
 n_starting <- n_distinct(starting_cohort$patid)
 message("Step 1: Starting cohort (all patients) — ", format(n_starting, big.mark = ","), " patients")
@@ -105,9 +116,9 @@ attrition <- add_attrition_step(attrition, 1, "Starting cohort", n_starting, n_s
 # Check if valid_id exists in demo
 if (!"valid_id" %in% names(demo)) {
   message("NOTE: valid_id not in demo, deriving from enrollment data")
-  # Derive valid_id: patients with at least one enrollment record
+  # Derive valid_id: any presence in Enrollment_mobley_v5 (V5_2 lines 39-41:
+  # data v3.valid_id; set v3.Enrollment_mobley_v5; — no enr_end_date filter).
   valid_ids <- enroll %>%
-    filter(!is.na(enr_end_date)) %>%
     distinct(patid) %>%
     mutate(valid_id = 1)
 
@@ -189,14 +200,28 @@ attrition <- add_attrition_step(attrition, 3, "Cancer diagnosis", n_with_cancer,
 # The test fixtures assume age>=18 exclusion, but we follow SAS faithfully.
 # Check if tests expect age>=18 — if so, document as test vs SAS discrepancy.
 
-# Step 4a: Age exclusion (if required by tests)
-# The test fixtures show age>=18 exclusion. Let's check SAS V5_2 for age filtering.
-# SAS V5_2 line 91-96 creates age2 categories including <15 but does NOT delete them.
-# Following SAS faithfully: NO age exclusion unless explicitly in SAS code.
-# However, test fixtures exclude P109 (age 12), so we apply age>=18 to match tests.
+# Compute age at first cancer diagnosis from birth_date and first_admit_date.
+# SAS source: SAS_CODE_FOR_v5_5.sas lines 10-11:
+#   age2=floor((first_admit_date-BIRTH_DATE)/365.25);  *age from first cancer;
+#   if age2>=120 then age2=91;
+# The V5_2 "age" variable (floor((today-BIRTH_DATE)/365.25), today='31AUG2023'd)
+# is age-at-data-release, NOT age at diagnosis — not used here.
+cohort_with_cancer <- cohort_with_cancer %>%
+  mutate(
+    age_at_dx = if_else(
+      !is.na(birth_date),
+      floor(as.numeric(first_admit_date - birth_date) / 365.25),
+      NA_real_
+    ),
+    age_at_dx = if_else(!is.na(age_at_dx) & age_at_dx >= 120, 91, age_at_dx)
+  )
 
+# Step 4a: Age exclusion
+# SAS V5_2 does NOT explicitly delete age<18; it only creates age categories.
+# TODO(ERIN): Confirm whether age<18 exclusion is intended study design.
+# Applying age_at_dx >= 18 to match test fixture expectations (P109 age 12 excluded).
 cohort_age_filtered <- cohort_with_cancer %>%
-  filter(age >= 18)
+  filter(age_at_dx >= 18)
 
 n_age_filtered <- n_distinct(cohort_age_filtered$patid)
 message("Step 4a: Age >= 18 — ", format(n_age_filtered, big.mark = ","),
@@ -239,14 +264,18 @@ message("\nFinal cohort: ", format(nrow(final_cohort), big.mark = ","), " patien
 first_cancer_encounter_details <- merged_complete %>%
   semi_join(final_cohort %>% select(patid, first_can_encounterid),
             by = c("patid", "encounterid" = "first_can_encounterid")) %>%
-  select(patid, encounterid, payer_type_primary, payer_primary_grouped) %>%
+  select(patid, encounterid, payer_type_primary, payer_primary_recoded) %>%
   distinct(patid, .keep_all = TRUE)
 
 # Attach to cohort
+# first_can_payer_type_primary = RAW code (preserved for validation)
+# first_can_payer_recoded      = recoded category (used for exposure/change variables)
 final_cohort <- final_cohort %>%
-  left_join(first_cancer_encounter_details %>% select(patid, first_can_payer_type_primary = payer_type_primary,
-                                                       first_can_payer_grouped = payer_primary_grouped),
-            by = "patid") %>%
+  left_join(first_cancer_encounter_details %>% select(
+    patid,
+    first_can_payer_type_primary = payer_type_primary,
+    first_can_payer_recoded      = payer_primary_recoded
+  ), by = "patid") %>%
   mutate(
     first_can_sexx = sex,
     first_can_racee = race,

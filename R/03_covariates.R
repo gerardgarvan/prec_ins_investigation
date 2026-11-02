@@ -116,14 +116,16 @@ print(janitor::tabyl(analytical, sex))
 
 message("\n=== Section 6: Age Categories ===")
 
+# SAS V5_2 lines 91-96: age2 categories; breakpoints 15/40/55/65 are unchanged.
+# R uses age_at_dx (from birth_date + first_admit_date, with >=120->91 cap per V5_5 line 11).
 analytical <- analytical %>%
   mutate(
     age2 = case_when(
-      age < 15 ~ 1L,
-      age >= 15 & age < 40 ~ 2L,   # SAS: 15-39 means 15 <= age < 40
-      age >= 40 & age < 55 ~ 3L,   # 40-54 means 40 <= age < 55
-      age >= 55 & age < 65 ~ 4L,   # 55-64 means 55 <= age < 65
-      age >= 65 ~ 5L,
+      age_at_dx < 15 ~ 1L,
+      age_at_dx < 40 ~ 2L,
+      age_at_dx < 55 ~ 3L,
+      age_at_dx < 65 ~ 4L,
+      !is.na(age_at_dx) ~ 5L,
       TRUE ~ NA_integer_
     )
   )
@@ -141,6 +143,13 @@ print(janitor::tabyl(analytical, age2))
 # first_sdi <=100 -> first_sdi2=3
 
 message("\n=== Section 7: SDI Categorization ===")
+
+# TODO(ERIN): first_can_sdi_score source unconfirmed — no V5 SAS file derives it
+# from a code list. Confirm the SDI linkage table and column name on HiPerGator.
+if (!"first_can_sdi_score" %in% names(analytical)) {
+  stop("first_can_sdi_score not found in 03_outcomes.rds. ",
+       "TODO(ERIN): confirm SDI linkage table and column name on HiPerGator.")
+}
 
 analytical <- analytical %>%
   mutate(
@@ -165,6 +174,13 @@ print(janitor::tabyl(analytical, first_sdi2))
 # SAS V5_15 line 22: first_can_ruca as first_ruca
 
 message("\n=== Section 8: RUCA Classification ===")
+
+# TODO(ERIN): first_can_ruca source unconfirmed — no V5 SAS file derives it
+# from a code list. Confirm the RUCA linkage table and column name on HiPerGator.
+if (!"first_can_ruca" %in% names(analytical)) {
+  stop("first_can_ruca not found in 03_outcomes.rds. ",
+       "TODO(ERIN): confirm RUCA linkage table and column name on HiPerGator.")
+}
 
 analytical <- analytical %>%
   mutate(
@@ -263,7 +279,7 @@ analytical_final <- analytical %>%
     # Demographics (COV-01)
     sex, race, race2, hispanic,
     # Age (COV-02)
-    age, age2,
+    age_at_dx, age2,
     # SDI (COV-03)
     first_sdi, first_sdi2,
     # RUCA (COV-04)
@@ -304,7 +320,7 @@ analytical_complete <- analytical_final %>%
   filter(
     !is.na(sex), !is.na(race2), !is.na(hispanic),
     !is.na(first_payer), !is.na(first_ruca), !is.na(first_sdi2),
-    !is.na(age2), !is.na(intensity),
+    !is.na(age_at_dx), !is.na(age2), !is.na(intensity),
     !is.na(person_time_days), person_time_days > 0
   )
 

@@ -97,9 +97,16 @@ message("Encounter rows: ", format(nrow(encounters), big.mark = ","),
 #   Assumed join key column: "icd9_10" (from SAS column ICD9_10 after clean_names)
 #   Assumed group column: "group_site" (from SAS column Group_Site after clean_names)
 
-icd_groups <- as.data.table(
-  readRDS(file.path(data_dir_processed, "01_imported_icd_groups.rds"))
-)
+icd_path <- file.path(data_dir_processed, "01_imported_icd_groups.rds")
+if (!file.exists(icd_path)) {
+  stop(
+    "01_imported_icd_groups.rds not found at: ", icd_path, "\n",
+    "  Run R/01_import.R first to import Icd10_groups2.sas7bdat.\n",
+    "  TODO(ERIN): confirm the canonical lookup source for ICD-10 cancer site groups ",
+    "(Icd10_groups2.sas7bdat vs. a separate reference file)."
+  )
+}
+icd_groups <- as.data.table(readRDS(icd_path))
 message("icd_groups: ", nrow(icd_groups), " rows | cols: ", paste(names(icd_groups), collapse = ", "))
 
 # ICD personal-treatment-history codes (V5_8 line 81)
@@ -366,47 +373,43 @@ message("  ENC_TYPE distribution:")
 print(janitor::tabyl(encounters, enc_type_label))
 
 # ========================================
-# Section 7 -- CLN-03 / CLN-06: Payer Type Recoding (per D-03)
+# Section 7 -- CLN-03 / CLN-06: Payer Type Recoding (per SAS new828.sas lines 57-77)
 # ========================================
+#
+# Recode rules (SAS =: is a prefix/starts-with operator):
+#   14x -> '4'  Medicare+Medicaid dual (must check before 1xx)
+#   1xx -> '1'  Medicare
+#   2xx -> '2'  Medicaid
+#   3xx, 5xx, 6xx, 7xx -> '5'  Private/commercial (incl. Other Government)
+#   4xx -> '9'  Other/unknown
+#   8xx -> '8'  No coverage
+#   9xx or 'OT' -> '9'  Other/unknown
+#   blank/NA  -> NA  (SAS leaves blank as blank)
+#
+# Category labels: 1=Medicare, 2=Medicaid, 4=Dual, 5=Private, 8=None, 9=Other/Unknown
 
-encounters[, payer_primary_code := fifelse(
-  is.na(payer_type_primary), "U", substr(payer_type_primary, 1, 1)
-)]
-
-encounters[, payer_primary_grouped := factor(payer_primary_code,
-                                              levels = sas_formats$p_payer$levels,
-                                              labels = sas_formats$p_payer$labels)]
-
-unmapped_payer <- encounters[is.na(payer_primary_grouped) & !is.na(payer_type_primary),
-                              .N, by = payer_type_primary]
-if (nrow(unmapped_payer) > 0) {
-  message("WARNING: Unmapped payer codes found (assigning 'Unknown' per D-04):")
-  print(unmapped_payer)
-  encounters[is.na(payer_primary_grouped) & !is.na(payer_type_primary),
-             payer_primary_grouped := factor("Unknown",
-                                             levels = levels(encounters$payer_primary_grouped))]
+recode_payer <- function(x) {
+  dplyr::case_when(
+    is.na(x) | x == ""                     ~ NA_character_,
+    startsWith(x, "14")                     ~ "4",
+    startsWith(x, "1")                      ~ "1",
+    startsWith(x, "2")                      ~ "2",
+    startsWith(x, "3") | startsWith(x, "5") |
+      startsWith(x, "6") | startsWith(x, "7") ~ "5",
+    startsWith(x, "4")                      ~ "9",
+    startsWith(x, "8")                      ~ "8",
+    startsWith(x, "9") | x == "OT"         ~ "9",
+    TRUE                                    ~ NA_character_
+  )
 }
 
-encounters[, payer_secondary_code := fifelse(
-  is.na(payer_type_secondary), "U", substr(payer_type_secondary, 1, 1)
-)]
-encounters[, payer_secondary_grouped := factor(payer_secondary_code,
-                                                levels = sas_formats$p_payer$levels,
-                                                labels = sas_formats$p_payer$labels)]
+encounters[, payer_primary_recoded   := recode_payer(payer_type_primary)]
+encounters[, payer_secondary_recoded := recode_payer(payer_type_secondary)]
 
-encounters[, payer_primary_collapsed := factor(payer_primary_code,
-                                                levels = sas_formats$payerr$levels,
-                                                labels = sas_formats$payerr$labels)]
-encounters[, payer_primary_public := factor(payer_primary_code,
-                                             levels = sas_formats$payerrr$levels,
-                                             labels = sas_formats$payerrr$labels)]
-
-dual_check <- encounters[payer_primary_code == "4", .N, by = payer_primary_grouped]
-message("\nDual Medicare/Medicaid mapping check:")
-if (nrow(dual_check) > 0) print(dual_check) else message("  No dual eligibility codes found")
-
-message("\nPayer primary grouped distribution:")
-print(janitor::tabyl(encounters, payer_primary_grouped))
+message("\nPayer primary recoded distribution:")
+print(janitor::tabyl(encounters, payer_primary_recoded))
+message("\nPayer secondary recoded distribution:")
+print(janitor::tabyl(encounters, payer_secondary_recoded))
 
 # ========================================
 # Section 8 -- Save Encounter Checkpoint
