@@ -30,6 +30,23 @@ dir.create(output_dir_tables, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_figures, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_diagnostics, recursive = TRUE, showWarnings = FALSE)
 
+# PIPELINE_TEST switch: set env var PIPELINE_TEST=TRUE to point all dirs at
+# local test fixtures under tests/testdata/ (no HiPerGator connection required).
+# Default FALSE uses the HiPerGator paths above.
+if (isTRUE(as.logical(Sys.getenv("PIPELINE_TEST", "FALSE")))) {
+  data_dir_raw           <- here::here("tests", "testdata", "raw")
+  data_dir_processed     <- here::here("tests", "testdata", "processed")
+  output_dir             <- here::here("tests", "testdata", "output")
+  output_dir_tables      <- file.path(output_dir, "tables")
+  output_dir_figures     <- file.path(output_dir, "figures")
+  output_dir_diagnostics <- file.path(output_dir, "diagnostics")
+  message("PIPELINE_TEST=TRUE — using local test fixtures under tests/testdata/")
+  dir.create(data_dir_processed,      recursive = TRUE, showWarnings = FALSE)
+  dir.create(output_dir_tables,       recursive = TRUE, showWarnings = FALSE)
+  dir.create(output_dir_figures,      recursive = TRUE, showWarnings = FALSE)
+  dir.create(output_dir_diagnostics,  recursive = TRUE, showWarnings = FALSE)
+}
+
 # NOTE: SAS library alias confusion (per D-10, Research pitfall 4):
 #   SAS "libname v3" alias actually points to Data_v5 directory
 #   SAS "libname v4" alias points to Data_v4 directory

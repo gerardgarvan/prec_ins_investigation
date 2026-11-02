@@ -57,6 +57,10 @@ import_sas <- function(filename, data_dir = data_dir_raw, description = filename
 
   # Standardize column names (janitor convention)
   df <- janitor::clean_names(df)
+  # SAS uses ID; R pipeline standardizes to patid
+  if ("id" %in% names(df) && !"patid" %in% names(df)) {
+    names(df)[names(df) == "id"] <- "patid"
+  }
   attr(df, "sas_labels") <- original_labels
 
   # Per IMP-03: numeric SAS dates (days since 1960-01-01) -> Date
