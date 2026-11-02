@@ -7,11 +7,10 @@
 # SAS Source: V5_12 (chemo/procedure identification), V5_14 (treatment intensity),
 #             V5_15 (change_vars macro, group_site2, for_table assembly)
 #
-# Inputs:  data/processed/03_cohort.rds (from 03_cohort.R)
-#          data/processed/02_proc_combined.rds (procedures for chemo/surgery/radiation)
-#          data/processed/01_imported_dispensing.rds (NDC for chemo)
-#          data/processed/02_merged_enc_dx.rds (for encounter-level group_site)
-#          data/processed/02_merged_complete.rds (for last_payer derivation)
+# Inputs:  data/processed/03_cohort.rds           (from 03_cohort.R)
+#          data/processed/02_proc_patient_flags.rds (replaces 02_proc_combined.rds)
+#          data/processed/02_dispensing_patids.rds  (replaces 01_imported_dispensing.rds)
+#          data/processed/02_merged_complete.rds    (encounter rows; carries group_site)
 #          data/processed/01_formats.rds
 # Outputs: data/processed/03_exposure.rds
 
@@ -40,197 +39,75 @@ message("========================================")
 # Load Phase 3 cohort
 cohort <- readRDS(file.path(data_dir_processed, "03_cohort.rds"))
 
-# Load procedures data for treatment identification
-proc_combined <- readRDS(file.path(data_dir_processed, "02_proc_combined.rds"))
+# Pre-computed patient-level treatment flags (chemo/surgery/radiation/sct).
+# Derived per proc part in 02_clean.R — replaces loading 02_proc_combined.rds.
+proc_patient_flags <- readRDS(file.path(data_dir_processed, "02_proc_patient_flags.rds"))
 
-# Load dispensing data for NDC-based chemo identification
-dispensing <- readRDS(file.path(data_dir_processed, "01_imported_dispensing.rds"))
+# Distinct patids with any dispensing record (NDC-based chemo identification).
+# Reduced in 02_clean.R — replaces loading the full dispensing table.
+dispensing_patids <- readRDS(file.path(data_dir_processed, "02_dispensing_patids.rds"))
 
-# Load merged encounter-dx for group_site and encounter-level data
-merged_enc_dx <- readRDS(file.path(data_dir_processed, "02_merged_enc_dx.rds"))
-
-# Load merged complete for last_payer derivation
+# merged_complete: one row per encounter; carries group_site from dx_encounter.
+# Replaces merged_enc_dx (which was one row per encounter-dx pair).
 merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds"))
 
 message("Loaded datasets:")
-message("  cohort: ", format(nrow(cohort), big.mark = ","), " patients")
-message("  proc_combined: ", format(nrow(proc_combined), big.mark = ","), " procedures")
-message("  dispensing: ", format(nrow(dispensing), big.mark = ","), " dispensing records")
-message("  merged_enc_dx: ", format(nrow(merged_enc_dx), big.mark = ","), " encounter-dx rows")
-message("  merged_complete: ", format(nrow(merged_complete), big.mark = ","), " encounter rows")
+message("  cohort:              ", format(nrow(cohort),              big.mark = ","), " patients")
+message("  proc_patient_flags:  ", format(nrow(proc_patient_flags),  big.mark = ","), " patients with proc records")
+message("  dispensing_patids:   ", format(nrow(dispensing_patids),   big.mark = ","), " patients with dispensing records")
+message("  merged_complete:     ", format(nrow(merged_complete),     big.mark = ","), " encounter rows")
 
 # ========================================
-# Section 3 -- Chemotherapy Identification (EXP-04)
+# Section 3 -- Treatment Flags from Pre-Computed Proc Patient Flags
 # ========================================
-
-# SAS source: V5_12 lines 134-143, 284-294
-# Chemotherapy identified from four sources:
-#   1. PROCEDURES (CPT/HCPCS): px_type=="CH" AND px in 96401-96549 OR J9000-J9999
-#   2. PROCEDURES (ICD-10): px_type=="10" AND px in ("Z51.11", "Z51.12")
-#   3. PROCEDURES (ICD-9): px_type=="09" AND px in ("V58.11", "V58.12")
-#   4. DISPENSING (NDC): Join with ndc_cond2 reference where SEERRxCategory != "1" (Ancillary)
 #
-# NOTE: We don't have ndc_cond2 reference table, so we'll mark all NDC dispensing as potential chemo
-# and document this limitation. The SAS logic filters NDC where SEERRxCategory != "1".
+# SAS source: V5_12 lines 134-143 (chemo), 497-567 (radiation),
+#             607-655 (surgery), 663-720 (SCT)
+# Procedure codes were applied per-part in 02_clean.R and the patient-level
+# max was saved to 02_proc_patient_flags.rds.  Join here instead of re-scanning
+# the full proc tables.
 
-message("\n=== Section 3: Chemotherapy Identification ===")
+message("\n=== Section 3-6: Treatment Flags (from 02_proc_patient_flags.rds) ===")
 
-# Procedure-based chemo identification
-proc_chemo <- proc_combined %>%
-  filter(patid %in% cohort$patid) %>%
-  filter(
-    # CPT/HCPCS: 96401-96549 or J9000-J9999
-    (px_type == "CH" & ((px >= "96401" & px <= "96549") | (px >= "J9000" & px <= "J9999"))) |
-    # ICD-10: Z51.11, Z51.12
-    (px_type == "10" & px %in% c("Z51.11", "Z51.12")) |
-    # ICD-9: V58.11, V58.12
-    (px_type == "09" & px %in% c("V58.11", "V58.12"))
-  ) %>%
-  distinct(patid) %>%
-  mutate(chemo_proc = 1L)
+# Filter proc flags to cohort patients and join
+cohort_proc_flags <- proc_patient_flags %>%
+  filter(patid %in% cohort$patid)
 
-message("  Patients with procedure-based chemo: ", nrow(proc_chemo))
-
-# Dispensing-based chemo identification
-# NOTE: SAS V5_12 joins dispensing with ndc_cond2 reference on NDC9 (first 9 chars)
-# Without ndc_cond2 reference table, we treat all dispensing as potential chemo
-# Document this limitation with EDGE CASE flag
-disp_chemo <- dispensing %>%
-  filter(patid %in% cohort$patid) %>%
-  distinct(patid) %>%
-  mutate(chemo_disp = 1L)
-
-message("  Patients with dispensing-based chemo: ", nrow(disp_chemo))
-message("  NOTE: NDC-based chemo identification requires ndc_cond2 reference table (SEERRxCategory)")
-message("  EDGE CASE: All dispensing records treated as potential chemo until reference table available")
-
-# Combine chemo flags from both sources
 cohort <- cohort %>%
-  left_join(proc_chemo, by = "patid") %>%
+  left_join(cohort_proc_flags, by = "patid") %>%
+  mutate(
+    chemo_proc     = replace_na(chemo_proc,     0L),
+    surgery_proc   = replace_na(surgery_proc,   0L),
+    radiation_proc = replace_na(radiation_proc, 0L),
+    sct_proc       = replace_na(sct_proc,       0L)
+  )
+
+# Dispensing-based chemo (NDC): join dispensing_patids to cohort
+# SAS V5_12: joins dispensing to ndc_cond2 where SEERRxCategory != "1" (Ancillary)
+# Without ndc_cond2 reference, all dispensing records are treated as potential chemo.
+# EDGE CASE: requires ndc_cond2 validation on HiPerGator
+disp_chemo <- dispensing_patids %>%
+  filter(patid %in% cohort$patid) %>%
+  mutate(chemo_disp = 1L)
+message("  Patients with dispensing-based chemo: ", nrow(disp_chemo))
+message("  EDGE CASE: All dispensing records treated as potential chemo until ndc_cond2 reference available")
+
+cohort <- cohort %>%
   left_join(disp_chemo, by = "patid") %>%
   mutate(
-    chemo = if_else(chemo_proc == 1 | chemo_disp == 1, 1L, 0L, missing = 0L)
+    chemo_disp = replace_na(chemo_disp, 0L),
+    chemo    = if_else(chemo_proc    == 1L | chemo_disp == 1L, 1L, 0L),
+    surgery  = surgery_proc,
+    radiation = radiation_proc,
+    sct      = sct_proc
   ) %>%
-  select(-chemo_proc, -chemo_disp)
+  select(-chemo_proc, -chemo_disp, -surgery_proc, -radiation_proc, -sct_proc)
 
-message("  Final chemo distribution: ", sum(cohort$chemo == 1), " chemo / ",
-        sum(cohort$chemo == 0), " no chemo")
-
-# ========================================
-# Section 4 -- Surgery Identification
-# ========================================
-
-# SAS source: V5_14 references surgery_all dataset (created in V5_12)
-# V5_12 lines 607-655: Surgery identified from procedures, diagnoses, and encounter DRG codes
-# using surgerycodes reference table
-#
-# Without the reference table, we use ICD-10-PCS surgical root operations:
-# - Medical and Surgical section codes starting with 0 (e.g., 0F=Hepatobiliary, 0V=Male Reproductive)
-# - Common surgical root operations: Resection, Excision, Drainage, etc.
-#
-# EDGE CASE: This is a best-effort translation requiring validation against surgerycodes reference
-
-message("\n=== Section 4: Surgery Identification ===")
-
-proc_surgery <- proc_combined %>%
-  filter(patid %in% cohort$patid) %>%
-  filter(
-    # ICD-10-PCS: Medical and Surgical section (starts with 0)
-    # Common surgical body systems: 0B=Respiratory, 0D=Gastrointestinal, 0F=Hepatobiliary,
-    # 0T=Urinary, 0V=Male Reproductive, etc.
-    px_type == "10" & grepl("^0[A-Z]", px)
-  ) %>%
-  distinct(patid) %>%
-  mutate(surgery_proc = 1L)
-
-message("  Patients with procedure-based surgery: ", nrow(proc_surgery))
-message("  EDGE CASE: Surgery identification uses ICD-10-PCS Medical/Surgical section")
-message("  NOTE: SAS V5_12 uses surgerycodes reference table for comprehensive identification")
-
-cohort <- cohort %>%
-  left_join(proc_surgery, by = "patid") %>%
-  mutate(
-    surgery = if_else(surgery_proc == 1, 1L, 0L, missing = 0L)
-  ) %>%
-  select(-surgery_proc)
-
-message("  Final surgery distribution: ", sum(cohort$surgery == 1), " surgery / ",
-        sum(cohort$surgery == 0), " no surgery")
-
-# ========================================
-# Section 5 -- Radiation Identification
-# ========================================
-
-# SAS source: V5_14 references radiation_all dataset (created in V5_12)
-# V5_12 lines 497-567: Radiation identified from procedures (70010-79999, Z51.0, V58.0)
-# and diagnoses (V51.0, V58.0)
-
-message("\n=== Section 5: Radiation Identification ===")
-
-proc_radiation <- proc_combined %>%
-  filter(patid %in% cohort$patid) %>%
-  filter(
-    # CPT radiation therapy codes: 77000-79999 (radiation oncology)
-    (px_type == "CH" & px >= "77000" & px <= "79999") |
-    # ICD-10 radiation encounter: Z51.0
-    (px_type == "10" & px == "Z51.0") |
-    # ICD-9 radiation encounter: V58.0
-    (px_type == "09" & px == "V58.0")
-  ) %>%
-  distinct(patid) %>%
-  mutate(radiation_proc = 1L)
-
-message("  Patients with procedure-based radiation: ", nrow(proc_radiation))
-
-cohort <- cohort %>%
-  left_join(proc_radiation, by = "patid") %>%
-  mutate(
-    radiation = if_else(radiation_proc == 1, 1L, 0L, missing = 0L)
-  ) %>%
-  select(-radiation_proc)
-
-message("  Final radiation distribution: ", sum(cohort$radiation == 1), " radiation / ",
-        sum(cohort$radiation == 0), " no radiation")
-
-# ========================================
-# Section 6 -- SCT (Stem Cell Transplant) Identification
-# ========================================
-
-# SAS source: V5_14 references all_sct dataset (created in V5_12)
-# V5_12 lines 663-720: SCT codes from sctcodes reference:
-#   CPT: 38240, 38241, 38242, 38243
-#   ICD-10: T86.5, Z94.81, T86.09, T86.0
-#   ICD-9: V42.82, V41.0
-#   ICD-10-PCS: 30233C0, 30233G0, 30243C0, 30243G0, 30233Y0, 30243Y0
-
-message("\n=== Section 6: SCT Identification ===")
-
-sct_codes_cpt <- c("38240", "38241", "38242", "38243")
-sct_codes_icd10 <- c("T86.5", "Z94.81", "T86.09", "T86.0")
-sct_codes_icd9 <- c("V42.82", "V41.0")
-sct_codes_icd10pcs <- c("30233C0", "30233G0", "30243C0", "30243G0", "30233Y0", "30243Y0")
-
-proc_sct <- proc_combined %>%
-  filter(patid %in% cohort$patid) %>%
-  filter(
-    (px_type == "CH" & px %in% sct_codes_cpt) |
-    (px_type == "10" & (px %in% sct_codes_icd10 | px %in% sct_codes_icd10pcs)) |
-    (px_type == "09" & px %in% sct_codes_icd9)
-  ) %>%
-  distinct(patid) %>%
-  mutate(sct_proc = 1L)
-
-message("  Patients with SCT: ", nrow(proc_sct))
-
-cohort <- cohort %>%
-  left_join(proc_sct, by = "patid") %>%
-  mutate(
-    sct = if_else(sct_proc == 1, 1L, 0L, missing = 0L)
-  ) %>%
-  select(-sct_proc)
-
-message("  Final SCT distribution: ", sum(cohort$sct == 1), " sct / ",
-        sum(cohort$sct == 0), " no sct")
+message("  chemo:     ", sum(cohort$chemo    == 1L), " / ", nrow(cohort), " patients")
+message("  surgery:   ", sum(cohort$surgery  == 1L), " / ", nrow(cohort), " patients")
+message("  radiation: ", sum(cohort$radiation == 1L), " / ", nrow(cohort), " patients")
+message("  sct:       ", sum(cohort$sct       == 1L), " / ", nrow(cohort), " patients")
+message("  EDGE CASE: Surgery uses ICD-10-PCS Medical/Surgical section (V5_12 surgerycodes ref needed)")
 
 # ========================================
 # Section 7 -- Ancillary Therapy Identification
@@ -341,11 +218,12 @@ for (i in 1:nrow(intensity_dist)) {
 
 message("\n=== Section 9: Cancer Site Groups ===")
 
-# Get group_site for each patient from their first cancer diagnosis encounter
-first_cancer_site <- merged_enc_dx %>%
+# Get group_site for each patient from their first cancer encounter.
+# merged_complete (one row per encounter) carries group_site from 02_dx_encounter.rds.
+first_cancer_site <- merged_complete %>%
   semi_join(cohort %>% select(patid, first_can_encounterid),
             by = c("patid", "encounterid" = "first_can_encounterid")) %>%
-  filter(any_reportable_cancer == 1) %>%
+  filter(any_reportable_cancer == 1L) %>%
   select(patid, group_site) %>%
   distinct(patid, .keep_all = TRUE)
 
