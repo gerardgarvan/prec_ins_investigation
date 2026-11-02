@@ -23,6 +23,7 @@
 
 library(here)
 source(here::here("R", "config.R"))
+source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(assertr)
 library(ggplot2)
@@ -40,15 +41,15 @@ message("========================================")
 # ========================================
 
 # Load Phase 1 demographics and enrollment
-demo <- readRDS(file.path(data_dir_processed, "01_imported_demo.rds"))
-enroll <- readRDS(file.path(data_dir_processed, "01_imported_enroll.rds"))
+demo <- read_checkpoint(file.path(data_dir_processed, "01_imported_demo.rds"))
+enroll <- read_checkpoint(file.path(data_dir_processed, "01_imported_enroll.rds"))
 
 # 02_dx_encounter.rds: one row per (patid, encounterid) with cancer flags.
 # Replaces the former 02_dx_combined.rds (50+ GB full dx table).
-dx_encounter <- readRDS(file.path(data_dir_processed, "02_dx_encounter.rds"))
+dx_encounter <- read_checkpoint(file.path(data_dir_processed, "02_dx_encounter.rds"))
 # 02_merged_complete.rds: one row per encounter (admit_date, payer, provider, dx flags).
 # Replaces 02_merged_enc_dx.rds (which was one row per encounter-dx pair).
-merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds"))
+merged_complete <- read_checkpoint(file.path(data_dir_processed, "02_merged_complete.rds"))
 
 message("Loaded datasets:")
 message("  demo: ", format(nrow(demo), big.mark = ","), " rows")

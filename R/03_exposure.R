@@ -22,6 +22,7 @@
 
 library(here)
 source(here::here("R", "config.R"))
+source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(janitor)
 library(assertr)
@@ -39,22 +40,22 @@ message("========================================")
 # ========================================
 
 # Load Phase 3 cohort
-cohort <- readRDS(file.path(data_dir_processed, "03_cohort.rds"))
+cohort <- read_checkpoint(file.path(data_dir_processed, "03_cohort.rds"))
 
 # Pre-computed patient-level treatment flags (chemo/surgery/radiation/sct).
 # Derived per proc part in 02_clean.R — replaces loading 02_proc_combined.rds.
-proc_patient_flags <- readRDS(file.path(data_dir_processed, "02_proc_patient_flags.rds"))
+proc_patient_flags <- read_checkpoint(file.path(data_dir_processed, "02_proc_patient_flags.rds"))
 
 # SEER*Rx NDC reference table (ndc9 key + seer_cat_code 1-6).
 # Built by 00_build_ndc.R from reference/ndconc_results_new.csv.
 ndc_ref <- readRDS(file.path(data_dir_processed, "01_imported_ndc.rds"))
 
 # Dispensing with normalized ndc9 (distinct patid + ndc9, built in 02_clean.R Section 4c).
-dispensing_ndc <- readRDS(file.path(data_dir_processed, "02_dispensing_ndc.rds"))
+dispensing_ndc <- read_checkpoint(file.path(data_dir_processed, "02_dispensing_ndc.rds"))
 
 # merged_complete: one row per encounter; carries group_site from dx_encounter.
 # Replaces merged_enc_dx (which was one row per encounter-dx pair).
-merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds"))
+merged_complete <- read_checkpoint(file.path(data_dir_processed, "02_merged_complete.rds"))
 
 message("Loaded datasets:")
 message("  cohort:              ", format(nrow(cohort),              big.mark = ","), " patients")

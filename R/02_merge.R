@@ -26,6 +26,7 @@
 
 library(here)
 source(here::here("R", "config.R"))
+source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(janitor)
 library(assertr)
@@ -39,9 +40,9 @@ message("========================================")
 # Section 2 -- Load Checkpoints
 # ========================================
 
-encounters  <- readRDS(file.path(data_dir_processed, "02_encounters_cleaned.rds"))
-dx_encounter <- readRDS(file.path(data_dir_processed, "02_dx_encounter.rds"))
-provider    <- readRDS(file.path(data_dir_processed, "01_imported_provider.rds"))
+encounters  <- read_checkpoint(file.path(data_dir_processed, "02_encounters_cleaned.rds"))
+dx_encounter <- read_checkpoint(file.path(data_dir_processed, "02_dx_encounter.rds"))
+provider    <- read_checkpoint(file.path(data_dir_processed, "01_imported_provider.rds"))
 
 message("Loaded datasets:")
 message("  encounters:   ", format(nrow(encounters),   big.mark = ","), " rows")

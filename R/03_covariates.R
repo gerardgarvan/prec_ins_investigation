@@ -20,6 +20,7 @@
 
 library(here)
 source(here::here("R", "config.R"))
+source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(janitor)
 library(assertr)
@@ -37,10 +38,10 @@ message("========================================")
 # ========================================
 
 # Load Phase 3 cohort with exposures + outcomes
-analytical <- readRDS(file.path(data_dir_processed, "03_outcomes.rds"))
+analytical <- read_checkpoint(file.path(data_dir_processed, "03_outcomes.rds"))
 
 # Load geographic covariates (first_can_ruca, first_can_sdi_score) from 03_geo.R
-geo <- readRDS(file.path(data_dir_processed, "03_geo.rds"))
+geo <- read_checkpoint(file.path(data_dir_processed, "03_geo.rds"))
 analytical <- analytical %>%
   left_join(geo %>% select(patid, first_can_ruca, first_can_sdi_score),
             by = "patid")

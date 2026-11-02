@@ -32,6 +32,7 @@
 
 library(here)
 source(here::here("R", "config.R"))
+source(here::here("R", "utils_import.R"))
 library(tidyverse)
 
 message("========================================")
@@ -43,9 +44,9 @@ message("========================================")
 # Section 1 -- Load Inputs
 # ========================================
 
-address <- readRDS(file.path(data_dir_processed, "01_imported_address.rds"))
+address <- read_checkpoint(file.path(data_dir_processed, "01_imported_address.rds"))
 ruca    <- readRDS(file.path(data_dir_processed, "01_imported_ruca.rds"))
-cohort  <- readRDS(file.path(data_dir_processed, "03_cohort.rds"))
+cohort  <- read_checkpoint(file.path(data_dir_processed, "03_cohort.rds"))
 
 # Normalise column names — SAS imports ID; R pipeline uses patid
 if ("id" %in% names(address) && !"patid" %in% names(address)) {
@@ -253,7 +254,7 @@ message("  ruca3=NA:         ", sum(is.na(ruca_combined$ruca3)))
 message("\n=== Section 7: SDI Derivation ===")
 
 # ZCTA lookup: ADDRESS_ZIP5 -> zcta
-zcta <- readRDS(file.path(data_dir_processed, "01_imported_zcta.rds"))
+zcta <- read_checkpoint(file.path(data_dir_processed, "01_imported_zcta.rds"))
 if ("id" %in% names(zcta)) zcta <- rename(zcta, patid = id)
 # zcta table has at minimum: ADDRESS_ZIP5, zcta
 

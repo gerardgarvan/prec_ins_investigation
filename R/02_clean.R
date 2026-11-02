@@ -59,8 +59,13 @@ enc_part_files <- sort(list.files(data_dir_processed,
 # rbindlist() allocates the final table once — no intermediate copies.
 encounters <- rbindlist(
   lapply(enc_part_files, function(f) {
-    part <- readRDS(f)
-    as.data.table(part)[, intersect(enc_cols_needed, names(part)), with = FALSE]
+    part <- read_checkpoint(f)
+    missing_cols <- setdiff(enc_cols_needed, names(part))
+    if (length(missing_cols) > 0) {
+      stop("Encounter part ", basename(f), " missing required columns: ",
+           paste(missing_cols, collapse = ", "))
+    }
+    as.data.table(part)[, enc_cols_needed, with = FALSE]
   }),
   use.names = TRUE, fill = TRUE
 )
@@ -160,7 +165,7 @@ dx_part_summaries <- vector("list", length(dx_part_files))
 for (i in seq_along(dx_part_files)) {
   message("  dx part ", i, "/", length(dx_part_files),
           " | ", basename(dx_part_files[i]))
-  part <- as.data.table(readRDS(dx_part_files[i]))
+  part <- as.data.table(read_checkpoint(dx_part_files[i]))
   message("    rows: ", format(nrow(part), big.mark = ","),
           " | in memory: ", format(object.size(part), units = "MB", standard = "legacy"))
 
@@ -275,7 +280,7 @@ proc_part_flags <- vector("list", length(proc_part_files))
 
 for (i in seq_along(proc_part_files)) {
   message("  proc part ", i, "/", length(proc_part_files))
-  pp <- as.data.table(readRDS(proc_part_files[i]))
+  pp <- as.data.table(read_checkpoint(proc_part_files[i]))
   message("    rows: ", format(nrow(pp), big.mark = ","),
           " | in memory: ", format(object.size(pp), units = "MB", standard = "legacy"))
 
@@ -343,7 +348,7 @@ rm(proc_all, proc_patient_flags); gc(verbose = FALSE)
 # NDC normalization per SAS V5_12 findings #3:
 #   dispensing ndc9 = first 9 chars of the digit-stripped dispensing NDC
 #   e.g. "72205006101" -> strip non-digits -> "72205006101" -> first 9 -> "722050061"
-dispensing <- readRDS(file.path(data_dir_processed, "01_imported_dispensing.rds"))
+dispensing <- read_checkpoint(file.path(data_dir_processed, "01_imported_dispensing.rds"))
 
 dispensing_patids <- data.frame(patid = unique(dispensing$patid))
 saveRDS(dispensing_patids, file.path(data_dir_processed, "02_dispensing_patids.rds"))
