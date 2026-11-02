@@ -162,7 +162,7 @@ legacy summary rows). Notable items:
   unquoted in certain contexts (e.g. `with(df, source(...))`) could call the base function
   instead. Status: **suspected** (compiles, may cause confusion; label carefully in downstream code).
 
-### Blocking: cancer_provider (outcomes 3 and 4)
+### Blocking: cancer_provider (outcomes 3 and 4) — RESOLVED 2026-11-02
 
 - **`cancer_provider`**: consumed at `03_outcomes.R:Section 4` for `Cancer_visit_and_prov`
   (OUT-03) and `Survivorship_visit` (OUT-04). It is a binary flag (1 = oncology specialist)
@@ -171,17 +171,48 @@ legacy summary rows). Notable items:
   which contains the `Cancer_provider` column pre-computed from NUCC Taxonomy 2.1.0
   (qualifying specialties: Hematologist, Oncologist, Hematologist/Oncologist, Surgical Oncologist,
   Radiation Oncologist).
-  The HiPerGator `provider` table has no `cancer_provider` column (confirmed: only PROVIDERID,
-  PROVIDER_SPECIALTY_PRIMARY, RAW_PROVIDER_SPECIALTY_PRIMARY, SOURCE). The xlsx file is not
-  available at the time of this writing.
-  Status: **confirmed broken pipe — outcomes 3 and 4 blocked**.
-  `03_outcomes.R` will `stop()` with an actionable error message if this column is absent.
-  Fix: import `nucc_taxonomy_210.xlsx` in `01_import.R`, join to provider on
-  `PROVIDER_SPECIALTY_PRIMARY` in `02_merge.R`, producing `cancer_provider` in
-  `02_provider_full.rds` and therefore in `02_merged_complete.rds`.
-  SAS references: `new828.sas:L115–132` (prov_spec import + join), `new828.sas:L2020–2027`
-  (usage in visit-type flag logic).
-  TODO(ERIN): obtain `nucc_taxonomy_210.xlsx` and implement prov_spec join.
+  Status: **RESOLVED** — `nucc_taxonomy_210.xlsx` committed to `reference/`.
+  `R/00_build_prov_spec.R` reads sheet "sas" A1:D866, normalizes PROVIDER_SPECIALTY_PRIMARY
+  (upper + trim), and produces `01_imported_prov_spec.rds` with 21 flagged codes.
+  `R/02_merge.R` Section 7b joins prov_spec to enc_dx_prov and fills missing join
+  to `cancer_provider = 0L`. `R/03_outcomes.R` replaces the `stop()` guard with
+  `assertr::verify(cancer_provider %in% c(0L, 1L))`.
+  SAS references: `SAS_CODE_FOR_v5_1.sas:L45–50` (PROC IMPORT), `SAS_CODE_FOR_V5_2.sas:L11–19` (JOIN).
+  TODO(ERIN): verify the 21 flagged NUCC codes against current NUCC taxonomy (see Provider Specialty Cancer Flags section below).
+
+### ICD Lookup Gaps — TODO(ERIN)
+
+The following ICD codes are present in PCORnet dx records but **not found** in `ForSAS_ICD10`
+sheet of `CancerSiteCategories.xlsx`. The two-pass join (exact + 5-char substr) in `02_clean.R`
+will leave these as `group_site = NA` (or "Reportable but not mapped above" after override logic).
+
+| ICD Code | Description | Expected Group_Site | Status |
+|----------|-------------|---------------------|--------|
+| C19 | Malignant neoplasm of rectosigmoid junction | Digestive | MISSING from ForSAS_ICD10 |
+| C20 | Malignant neoplasm of rectum | Digestive | MISSING from ForSAS_ICD10 |
+| C23 | Malignant neoplasm of gallbladder | Digestive | MISSING from ForSAS_ICD10 |
+| C65 | Malignant neoplasm of renal pelvis | Urinary System | MISSING from ForSAS_ICD10 |
+| C66 | Malignant neoplasm of ureter | Urinary System | MISSING from ForSAS_ICD10 |
+| C50.0 | Malignant neoplasm of nipple and areola (central portion) | Breast | MISSING from ForSAS_ICD10 |
+| C7A.00 | Malignant carcinoid tumor, unspecified site | Other | MISSING from ForSAS_ICD10 |
+
+Additional issues found in `CancerSiteCategories.xlsx`:
+- **Typo**: "Unrinary System" appears in some `Group_Site` labels; correct spelling is "Urinary System".
+- **Trailing spaces**: Some `Group_Site` values may have trailing whitespace (Excel artifact).
+
+**Fix available**: Set `options(prec_ins.fix_lookup_gaps = TRUE)` before sourcing
+`R/00_build_icd_groups.R` to add the 7 missing codes and fix the "Unrinary" typo.
+Default is `FALSE` (SAS-faithful — reproduces SAS output including the gaps).
+
+### Provider Specialty Cancer Flags — TODO(ERIN)
+
+`nucc_taxonomy_210.xlsx` sheet "sas" column D flags 21 NUCC taxonomy codes as `cancer_provider = 1`.
+These are printed to console when `R/00_build_prov_spec.R` runs (look for "Flagged cancer specialty codes:").
+
+TODO(ERIN): Verify these 21 codes against the current NUCC taxonomy (nucc.org) to confirm they
+still represent oncology specialties. NUCC taxonomy versions change; the xlsx may reflect an older
+version (2.1.0 per filename). Specialty categories expected to be flagged:
+Hematologist, Oncologist, Hematologist/Oncologist, Surgical Oncologist, Radiation Oncologist.
 
 ### Columns confirmed to flow correctly
 

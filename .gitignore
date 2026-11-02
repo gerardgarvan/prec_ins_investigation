@@ -21,6 +21,11 @@ output/
 .DS_Store
 Thumbs.db
 
+# Allow committed reference workbooks (analytical lookup files, not patient data)
+!reference/
+!reference/*.xlsx
+!reference/README.md
+
 # Keep these IN version control:
 # renv.lock (package versions)
 # renv/activate.R (renv bootstrap)

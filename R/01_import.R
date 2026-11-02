@@ -97,19 +97,17 @@ import_parts(
 )
 
 # GROUP 7: ICD code reference data
-out_icd <- file.path(data_dir_processed, "01_imported_icd_groups.rds")
-if (file.exists(out_icd)) {
-  message("  Skipping icd_groups — RDS already exists")
-} else {
-  icd_groups <- import_sas("Icd10_groups2.sas7bdat", description = "ICD-10 cancer site group mapping")
-  if (is.null(icd_groups)) {
-    dx_dir <- file.path(data_dir_raw, "Dx")
-    if (dir.exists(dx_dir))
-      icd_groups <- import_sas("Icd10_groups2.sas7bdat", data_dir = dx_dir,
-                               description = "ICD-10 cancer site groups (from Dx/ subdir)")
-  }
-  save_checkpoint(icd_groups, "icd_groups"); rm(icd_groups); gc(verbose = FALSE)
-}
+# Replaces Icd10_groups2.sas7bdat import.
+# Reads CancerSiteCategories.xlsx from reference/ and produces 01_imported_icd_groups.rds.
+# SAS source: "dx and tumor 5 30 2024.sas" (ForSAS_ICD10 A1:D1018 + ForSAS_ICD9toICD10 D1:E2917)
+# See DATA_LINEAGE.md and reference/README.md for context.
+source(here::here("R", "00_build_icd_groups.R"))
+
+# GROUP 7b: Provider specialty cancer flags
+# Replaces prov_spec from SAS v5_1 lines 45-50 (nucc_taxonomy_210.xlsx "sas" sheet A1:D866).
+# Produces 01_imported_prov_spec.rds with provider_specialty_primary + cancer_provider columns.
+# See DATA_LINEAGE.md and reference/README.md for context.
+source(here::here("R", "00_build_prov_spec.R"))
 
 message("\n========================================")
 message("Import complete at ", Sys.time())

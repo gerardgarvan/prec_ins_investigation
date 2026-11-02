@@ -15,3 +15,5 @@ Status key: DONE · PARTIAL · OPEN
 | 9 | `R/03_covariates.R` | `first_can_ruca` / `first_can_sdi_score`: fail fast with TODO(ERIN) | DONE |
 | 10 | `R/99_validate_vs_sas.R` | CHECK 3 compares SAS age2 (years) to R `age_at_dx` and SAS payer to R RECODED payer; CHECK 5 filters raw demo on id and reads only id+sex; CHECK 2 "last encounter" labelled INFERRED | DONE |
 | 11 | `archive/` | Move `R/02_clean_dt.R` and `R/02_clean_dplyr_backup.R` to `archive/` | DONE |
+| 12 | `R/00_build_icd_groups.R` + `R/02_clean.R` + `R/01_import.R` | ICD cancer site groups from CancerSiteCategories.xlsx; two-pass join (exact + 5-char substr) replicating SAS matching rule (V5_3 line 49); replaces Icd10_groups2.sas7bdat import | DONE |
+| 13 | `R/00_build_prov_spec.R` + `R/02_merge.R` + `R/03_outcomes.R` | cancer_provider from nucc_taxonomy_210.xlsx "sas" sheet; prov_spec left join in 02_merge.R Section 7b; fill cancer_provider=0 for misses; log unmatched codes; 03_outcomes.R stop() → assertr::verify | DONE |
