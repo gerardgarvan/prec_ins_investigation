@@ -257,9 +257,13 @@ comparing membership to R's cohort. See `R/99_validate_vs_sas.R` for the impleme
 
 ---
 
-### Task 2 — Payer recode taxonomy and R mis-mappings — CONFIRMED
+### Task 2 — Payer recode taxonomy — FIXED
 
-**CONFIRMED from `Formats.sas` lines 693–858 (`$payer` format) and `SAS_CODE_FOR_V4_1 (1).sas` lines 58–219.**
+**V5 pipeline source confirmed: `SAS_CODE_FOR_v5_1.sas` lines 57–382 (PROC SQL UPDATE inside
+a `/* */` comment block; the updated `v3.insurance` table persists on disk from a prior run).**
+
+The earlier citation to `SAS_CODE_FOR_V4_1 (1).sas` was from the V4 era; the V5 recode is
+identical in logic (same explicit code lists, same category boundaries).
 
 #### PCORnet raw code taxonomy (`Formats.sas:$payer`)
 
@@ -274,46 +278,58 @@ comparing membership to R's cohort. See `R/99_validate_vs_sas.R` for the impleme
 | 7x  | Managed Care Unspecified |
 | 8xx | No Payment / Self-pay |
 | 9xx | Miscellaneous / Other |
-| 14  | Dual Eligibility Medicare+Medicaid (exact two-digit code, child of 1xx) |
+| `14` | Dual Eligibility Medicare+Medicaid (exact two-digit code — child of 1xx) |
 
-#### SAS recode output — CONFIRMED (`SAS_CODE_FOR_V4_1 (1).sas:58–219`, `$payerr` format `Formats.sas:862–871`)
+#### SAS recode output — V5 confirmed (`SAS_CODE_FOR_v5_1.sas:61–219`)
 
-| SAS output | `$payerr` label | Raw PCORnet codes mapped |
-|-----------|----------------|--------------------------|
-| `'1'` | Medicare | 1, 11–13x, 19x |
-| `'2'` | Medicaid | 2, 21–29x |
-| `'4'` | Med_Medicaid | **14** (Dual Eligibility), **93** (Disability Insurance) |
-| `'5'` | Private | **3, 31–39x** (Other Gov), **5, 51–56x** (Private), **6, 61–62x** (BCBS), **7, 71–79** (Managed Care) |
-| `'9'` | Other | 4, 41–44 (Corrections), 9, 91–99x, **`'OT'`** (literal string) |
-| `'8'` | None | everything else (else clause, including NI/UN/missing) |
+| SAS output | Label | Raw PCORnet codes mapped |
+|-----------|-------|--------------------------|
+| `'1'` | Medicare | 1, 11–13, 19, 111–191 (exact list) |
+| `'2'` | Medicaid | 2, 21–29, 211–299 (exact list) |
+| `'4'` | Dual/Disability | **`'14'`** (Dual Eligibility), **`'93'`** (Disability Insurance) — exact codes only |
+| `'5'` | Private | 3, 31–39x (Other Gov); 5, 51–56x (Private); 6, 61–62x (BCBS); 7, 71–79 (Managed Care) |
+| `'9'` | Other | 4, 41–44 (Corrections); 9, 91–99x; **`'OT'`** (literal string) |
+| `'8'` | None/Unknown | **ELSE clause** — blank, NA, unmapped, or any code not in the lists above |
 
-Key point: output `'4'` = Dual Eligibility + Disability Insurance (NOT "Workers Comp").
-Output `'5'` collapses Other Government (3xx), Private (5xx), BCBS (6xx), and Managed Care (7x) into "Private".
+**Method:** Exhaustive explicit `in()` value lists. NO prefix/starts-with operator (`=:`) in V5.
+`'140'` is NOT in the dual list — it falls to ELSE → `'8'`.
 
-#### 4,920 blank `first_can_payer_type_primary` in baseline — CONFIRMED cause
+#### Dual eligibility — two V5 rules
 
-These are patients whose `first_can_ENCOUNTERID` had no matching row in `v3.insurance` at the
-left join at `SAS_CODE_FOR_V5_6.sas:88–130`. The join returns NULL for such patients; NULL is
-never touched by the V4_1 UPDATE (which ran earlier, only on existing insurance rows). This is
-NOT from the `else '8'` catch-all.
+**Rule 1 — direct at recode time** (`SAS_CODE_FOR_v5_1.sas:91–93`):
+Codes `'14'` and `'93'` map to `'4'` in the CASE WHEN block.
 
-#### Four R mis-mappings — CONFIRMED
+**Rule 2 — post-recode override** (`SAS_CODE_FOR_V5_8.sas:89`, follow-up encounters only):
+```sas
+if payer_type_secondary2 in ('1' '2') & payer_type_primary2 in ('1' '2')
+    then payer_type_primary2='4';
+```
+Fires on `v3.followups_dx` when BOTH recoded primary2 and secondary2 are Medicare (`'1'`) or
+Medicaid (`'2'`). Captures Medicare+Medicaid combinations not carrying code `'14'`. Does NOT
+apply to the first-cancer-encounter payer (`first_can_payer_type_primary`, which is set in
+`SAS_CODE_FOR_V5_6.sas:41` from an earlier dataset before this step).
 
-R (`R/02_clean.R:372–395`) uses `substr(payer_type_primary, 1, 1)` then maps through `sas_formats$p_payer`.
-This fails for four classes of codes:
+#### 4,920 blank `first_can_payer_type_primary` in baseline
 
-| # | Raw code | SAS result | R `substr(…,1,1)` result | Error |
-|---|----------|-----------|--------------------------|-------|
-| M1 | `14x` (Dual Eligibility) | → `'4'` Med_Medicaid | `'1'` → Medicare | **WRONG: classified as Medicare** |
-| M2 | `4xx` (Corrections) | → `'9'` Other | `'4'` → Med_Medicaid | **WRONG: classified as Med_Medicaid** |
-| M3 | `6xx` (BCBS), `7x` (Managed Care) | → `'5'` Private | `'6'`/`'7'` → no `$payerr` entry → NA/Unknown | **WRONG: classified as Unknown** |
-| M4 | `'OT'` (literal string) | → `'9'` Other | `'O'` → no `$payerr` entry → NA/Unknown | **WRONG: classified as Unknown** |
+These are join misses: patients whose `first_can_ENCOUNTERID` had no matching row in
+`v3.insurance` at the left join in `SAS_CODE_FOR_V5_6.sas:88–130`. NULL from left join is NOT
+the same as the ELSE `'8'` catch-all (which fires only when a row exists but the code is
+unmapped). In R: join misses stay NA (correct); blank raw payer codes on existing rows
+recode to `'8'` via `recode_payer(NA) -> '8'`.
 
-Note: `3xx` (Other Gov) → SAS `'5'` (Private) but R `'3'` → `$payerr` Government — also a
-mis-mapping, likely small in this Florida dataset (few TRICARE/VA patients).
+#### R fix — APPLIED (`R/02_clean.R`, commit e187b56 + this commit)
 
-Fix required in `R/02_clean.R`: replace the `substr` approach with explicit full-code matching
-that mirrors `SAS_CODE_FOR_V4_1 (1).sas:58–219`.
+`recode_payer()` now uses the same explicit `%in%` value lists from `SAS_CODE_FOR_v5_1.sas:61–219`.
+The Rule-2 dual override is applied to all encounter rows immediately after recoding.
+`NA` → `'8'` (ELSE clause). `'140'` → `'8'` (not in any explicit list).
+All four prior mis-mappings (M1–M4) are resolved.
+
+| # | Raw code | SAS result | Old R result | New R result |
+|---|----------|-----------|-------------|--------------|
+| M1 | `'14'` (Dual) | `'4'` | `'1'` (substr wrong) | **`'4'`** ✓ |
+| M2 | `'4'` (Corrections) | `'9'` | `'4'` (substr wrong) | **`'9'`** ✓ |
+| M3 | `'611'` (BCBS) | `'5'` | NA (not in format) | **`'5'`** ✓ |
+| M4 | `'OT'` | `'9'` | NA (not in format) | **`'9'`** ✓ |
 
 ---
 

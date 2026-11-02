@@ -111,70 +111,123 @@ test_that("CLN-06: Government payer (code 3) maps to Private per p_payer format"
 })
 
 # ==============================================================================
-# recode_payer(): prefix-based SAS recode per new828.sas lines 57-77
+# recode_payer(): explicit-list SAS recode per SAS_CODE_FOR_v5_1.sas lines 61-219
 # ==============================================================================
+# Source: SAS_CODE_FOR_v5_1.sas lines 57-382 (PROC SQL UPDATE, commented-out block).
+# Method: exhaustive explicit CASE WHEN — no prefix operator.
+# Blank/NA -> '8' (ELSE clause). OT -> '9'. Dual: codes '14','93' -> '4' (direct),
+# plus post-recode override when both primary and secondary are '1' or '2'.
 
-# Inline the function here so tests run without sourcing 02_clean.R
+PAYER_MEDICARE  <- c("1","11","111","112","113","119","12","121","122","123","129",
+                     "13","19","191")
+PAYER_MEDICAID  <- c("2","21","211","212","213","219","22","23","24","25","26",
+                     "29","291","299")
+PAYER_DUAL      <- c("14","93")
+PAYER_PRIVATE   <- c(
+  "3","31","311","3111","3112","3113","3114","3115","3116","3119",
+  "312","3121","3122","3123","313","32","321","3211","3212",
+  "32121","32122","32123","32124","32125","32126","32127","32128",
+  "322","3221","3222","3223","3229","33","331","332","333","334",
+  "34","341","342","343","349","35","36","361","362","369",
+  "37","371","3711","3712","3713","372","379",
+  "38","381","3811","3812","3813","3819","382","389","39","391",
+  "5","51","511","512","513","514","515","516","517","519",
+  "52","521","522","523","524","529","53","54","55","56","561","562",
+  "6","61","611","612","613","614","619","62","621","622","623","629",
+  "7","71","72","73","79"
+)
+PAYER_OTHER     <- c("4","41","42","43","44","9","91","92","94","95","951","953",
+                     "954","959","96","97","98","99","OT")
+
 recode_payer <- function(x) {
   dplyr::case_when(
-    is.na(x) | x == ""                        ~ NA_character_,
-    startsWith(x, "14")                        ~ "4",
-    startsWith(x, "1")                         ~ "1",
-    startsWith(x, "2")                         ~ "2",
-    startsWith(x, "3") | startsWith(x, "5") |
-      startsWith(x, "6") | startsWith(x, "7")  ~ "5",
-    startsWith(x, "4")                         ~ "9",
-    startsWith(x, "8")                         ~ "8",
-    startsWith(x, "9") | x == "OT"            ~ "9",
-    TRUE                                       ~ NA_character_
+    x %in% PAYER_DUAL     ~ "4",
+    x %in% PAYER_MEDICARE ~ "1",
+    x %in% PAYER_MEDICAID ~ "2",
+    x %in% PAYER_PRIVATE  ~ "5",
+    x %in% PAYER_OTHER    ~ "9",
+    TRUE                  ~ "8"   # blank/NA/unmapped -> '8' per ELSE clause
   )
 }
 
-test_that("recode_payer: Medicare 1xx -> '1'", {
-  expect_equal(recode_payer("101"), "1")
-  expect_equal(recode_payer("199"), "1")
+# --- Rule 1: direct codes (SAS_CODE_FOR_v5_1.sas lines 91-93) ---
+test_that("recode_payer rule-1a: code '14' -> '4' (dual eligibility)", {
+  expect_equal(recode_payer("14"), "4")
+})
+test_that("recode_payer rule-1b: code '93' -> '4' (disability insurance dual)", {
+  expect_equal(recode_payer("93"), "4")
+})
+test_that("recode_payer rule-1c: '140' is NOT in dual list -> '8' (ELSE, not prefix)", {
+  expect_equal(recode_payer("140"), "8")
+})
+
+# --- Medicare (SAS_CODE_FOR_v5_1.sas lines 61-75) ---
+test_that("recode_payer: Medicare codes -> '1'", {
   expect_equal(recode_payer("1"),   "1")
+  expect_equal(recode_payer("11"),  "1")
+  expect_equal(recode_payer("111"), "1")
+  expect_equal(recode_payer("13"),  "1")
+  expect_equal(recode_payer("191"), "1")
 })
 
-test_that("recode_payer: Medicaid 2xx -> '2'", {
-  expect_equal(recode_payer("201"), "2")
+# --- Medicaid (SAS_CODE_FOR_v5_1.sas lines 76-89) ---
+test_that("recode_payer: Medicaid codes -> '2'", {
   expect_equal(recode_payer("2"),   "2")
+  expect_equal(recode_payer("21"),  "2")
+  expect_equal(recode_payer("299"), "2")
 })
 
-test_that("recode_payer: Dual 14x -> '4' (before 1xx)", {
-  expect_equal(recode_payer("140"), "4")
-  expect_equal(recode_payer("149"), "4")
-  expect_equal(recode_payer("14"),  "4")
-})
-
-test_that("recode_payer: Private 3xx/5xx/6xx/7xx -> '5'", {
-  expect_equal(recode_payer("301"), "5")
+# --- Private/commercial (SAS_CODE_FOR_v5_1.sas lines 94-198) ---
+test_that("recode_payer: Private/commercial codes -> '5'", {
+  expect_equal(recode_payer("3"),   "5")   # Other Government lumped with private
   expect_equal(recode_payer("511"), "5")
-  expect_equal(recode_payer("512"), "5")  # 511->512 is NOT a change
-  expect_equal(recode_payer("601"), "5")
-  expect_equal(recode_payer("701"), "5")
+  expect_equal(recode_payer("512"), "5")   # 511 and 512 are NOT a change
+  expect_equal(recode_payer("611"), "5")   # BCBS
+  expect_equal(recode_payer("71"),  "5")   # Managed Care
+  expect_equal(recode_payer("79"),  "5")
 })
-
-test_that("recode_payer: 511 and 512 recode to same category (no change)", {
+test_that("recode_payer: 511 and 512 recode identically (not a coverage change)", {
   expect_equal(recode_payer("511"), recode_payer("512"))
 })
 
-test_that("recode_payer: 4xx -> '9'", {
-  expect_equal(recode_payer("401"), "9")
-  expect_equal(recode_payer("4"),   "9")
+# --- Other/Corrections (SAS_CODE_FOR_v5_1.sas lines 199-218) ---
+test_that("recode_payer: Other/corrections codes -> '9'", {
+  expect_equal(recode_payer("4"),  "9")
+  expect_equal(recode_payer("41"), "9")
+  expect_equal(recode_payer("9"),  "9")
+  expect_equal(recode_payer("99"), "9")
+  expect_equal(recode_payer("OT"), "9")
 })
 
-test_that("recode_payer: No coverage 8xx -> '8'", {
-  expect_equal(recode_payer("801"), "8")
-  expect_equal(recode_payer("8"),   "8")
+# --- Blank/NA/unmapped (ELSE clause, SAS_CODE_FOR_v5_1.sas line 219) ---
+test_that("recode_payer: NA -> '8' (ELSE clause, not NA)", {
+  expect_equal(recode_payer(NA_character_), "8")
+})
+test_that("recode_payer: blank string -> '8' (ELSE clause)", {
+  expect_equal(recode_payer(""), "8")
+})
+test_that("recode_payer: unmapped code -> '8' (ELSE clause)", {
+  expect_equal(recode_payer("ZZ"), "8")
 })
 
-test_that("recode_payer: Other 9xx and OT -> '9'", {
-  expect_equal(recode_payer("901"), "9")
-  expect_equal(recode_payer("OT"),  "9")
+# --- Rule 2: post-recode override (SAS_CODE_FOR_V5_8.sas line 89) ---
+# When both primary2 and secondary2 are in ('1','2') -> primary2='4'.
+# This fires for Medicare+Medicaid combos not already carrying code '14'/'93'.
+test_that("recode_payer rule-2: Medicare primary + Medicaid secondary -> override to '4'", {
+  primary_r   <- recode_payer("1")   # "1" Medicare
+  secondary_r <- recode_payer("2")   # "2" Medicaid
+  if (secondary_r %in% c("1","2") && primary_r %in% c("1","2")) primary_r <- "4"
+  expect_equal(primary_r, "4")
 })
-
-test_that("recode_payer: blank and NA -> NA", {
-  expect_true(is.na(recode_payer(NA_character_)))
-  expect_true(is.na(recode_payer("")))
+test_that("recode_payer rule-2: Medicaid primary + Medicare secondary -> override to '4'", {
+  primary_r   <- recode_payer("2")
+  secondary_r <- recode_payer("11")
+  if (secondary_r %in% c("1","2") && primary_r %in% c("1","2")) primary_r <- "4"
+  expect_equal(primary_r, "4")
+})
+test_that("recode_payer rule-2: Medicare primary + Private secondary -> NO override", {
+  primary_r   <- recode_payer("1")   # "1"
+  secondary_r <- recode_payer("511") # "5"
+  if (secondary_r %in% c("1","2") && primary_r %in% c("1","2")) primary_r <- "4"
+  expect_equal(primary_r, "1")       # unchanged
 })

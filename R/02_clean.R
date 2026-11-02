@@ -373,40 +373,73 @@ message("  ENC_TYPE distribution:")
 print(janitor::tabyl(encounters, enc_type_label))
 
 # ========================================
-# Section 7 -- CLN-03 / CLN-06: Payer Type Recoding (per SAS new828.sas lines 57-77)
+# Section 7 -- CLN-03 / CLN-06: Payer Type Recoding
 # ========================================
 #
-# Recode rules (SAS =: is a prefix/starts-with operator):
-#   14x -> '4'  Medicare+Medicaid dual (must check before 1xx)
-#   1xx -> '1'  Medicare
-#   2xx -> '2'  Medicaid
-#   3xx, 5xx, 6xx, 7xx -> '5'  Private/commercial (incl. Other Government)
-#   4xx -> '9'  Other/unknown
-#   8xx -> '8'  No coverage
-#   9xx or 'OT' -> '9'  Other/unknown
-#   blank/NA  -> NA  (SAS leaves blank as blank)
+# Source: SAS_CODE_FOR_v5_1.sas lines 57-382 (commented-out PROC SQL UPDATE block;
+#         the updated v3.insurance table persists on disk from a prior run).
+# Method: exhaustive explicit CASE WHEN — NOT a prefix/starts-with operator.
+# Blank/NA input hits the ELSE clause -> '8' (no coverage / unknown).
 #
-# Category labels: 1=Medicare, 2=Medicaid, 4=Dual, 5=Private, 8=None, 9=Other/Unknown
+# Dual eligibility (answer to question a):
+#   Rule 1 — direct: raw codes '14' and '93' -> '4' (SAS_CODE_FOR_v5_1.sas lines 91-93)
+#   Rule 2 — override: after recoding, if both primary2 AND secondary2 in ('1','2')
+#             then primary2='4' (SAS_CODE_FOR_V5_8.sas line 89, follow-up encounters only)
+#   Rule 2 fires for Medicare+Medicaid combos not already carrying code '14'.
+#
+# Blank/NA (answer to question b):
+#   SAS: blank payer_type_primary hits ELSE -> '8'.
+#   The 4,920 blank first_can_payer_type_primary in baseline are join misses
+#   (no insurance row for that ENCOUNTERID — DATA_LINEAGE.md Task 2), not ELSE-clause hits.
+#   In R: recode_payer(NA) -> '8' (matches ELSE on encounter rows present in the data).
+#   Join misses remain NA because no encounter row exists to recode.
+#
+# Category labels: 1=Medicare, 2=Medicaid, 4=Dual/Disability, 5=Private, 8=None/unknown, 9=Other
+
+# --- Explicit value sets from SAS_CODE_FOR_v5_1.sas lines 61-219 ---
+PAYER_MEDICARE  <- c("1","11","111","112","113","119","12","121","122","123","129",
+                     "13","19","191")
+PAYER_MEDICAID  <- c("2","21","211","212","213","219","22","23","24","25","26",
+                     "29","291","299")
+PAYER_DUAL      <- c("14","93")
+PAYER_PRIVATE   <- c(
+  "3","31","311","3111","3112","3113","3114","3115","3116","3119",
+  "312","3121","3122","3123","313","32","321","3211","3212",
+  "32121","32122","32123","32124","32125","32126","32127","32128",
+  "322","3221","3222","3223","3229","33","331","332","333","334",
+  "34","341","342","343","349","35","36","361","362","369",
+  "37","371","3711","3712","3713","372","379",
+  "38","381","3811","3812","3813","3819","382","389","39","391",
+  "5","51","511","512","513","514","515","516","517","519",
+  "52","521","522","523","524","529","53","54","55","56","561","562",
+  "6","61","611","612","613","614","619","62","621","622","623","629",
+  "7","71","72","73","79"
+)
+PAYER_OTHER     <- c("4","41","42","43","44","9","91","92","94","95","951","953",
+                     "954","959","96","97","98","99","OT")
 
 recode_payer <- function(x) {
   dplyr::case_when(
-    is.na(x) | x == ""                     ~ NA_character_,
-    startsWith(x, "14")                     ~ "4",
-    startsWith(x, "1")                      ~ "1",
-    startsWith(x, "2")                      ~ "2",
-    startsWith(x, "3") | startsWith(x, "5") |
-      startsWith(x, "6") | startsWith(x, "7") ~ "5",
-    startsWith(x, "4")                      ~ "9",
-    startsWith(x, "8")                      ~ "8",
-    startsWith(x, "9") | x == "OT"         ~ "9",
-    TRUE                                    ~ NA_character_
+    x %in% PAYER_DUAL     ~ "4",
+    x %in% PAYER_MEDICARE ~ "1",
+    x %in% PAYER_MEDICAID ~ "2",
+    x %in% PAYER_PRIVATE  ~ "5",
+    x %in% PAYER_OTHER    ~ "9",
+    TRUE                  ~ "8"   # blank/NA/unmapped -> '8' per ELSE clause
   )
 }
 
+# Primary and secondary recode (applied to encounter rows, not to join misses)
 encounters[, payer_primary_recoded   := recode_payer(payer_type_primary)]
 encounters[, payer_secondary_recoded := recode_payer(payer_type_secondary)]
 
-message("\nPayer primary recoded distribution:")
+# Rule 2 dual override (SAS_CODE_FOR_V5_8.sas line 89):
+# Fires on follow-up encounters when both primary and secondary are Medicare or Medicaid.
+# Applied here to all encounters; 03_exposure.R selects last encounter after first_admit_date.
+encounters[payer_secondary_recoded %in% c("1","2") & payer_primary_recoded %in% c("1","2"),
+           payer_primary_recoded := "4"]
+
+message("\nPayer primary recoded distribution (after dual override):")
 print(janitor::tabyl(encounters, payer_primary_recoded))
 message("\nPayer secondary recoded distribution:")
 print(janitor::tabyl(encounters, payer_secondary_recoded))
