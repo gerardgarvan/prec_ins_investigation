@@ -333,15 +333,41 @@ message("Saved: 02_proc_patient_flags.rds")
 rm(proc_all, proc_patient_flags); gc(verbose = FALSE)
 
 # ========================================
-# Section 4c -- Dispensing: Reduce to Distinct Patient IDs
+# Section 4c -- Dispensing: Normalize NDC and Reduce
 # ========================================
-# 03_exposure.R needs dispensing only for NDC-based chemo patient flags.
-# Reduce to distinct patids here; 03_exposure.R loads the small table.
+# 03_exposure.R joins dispensing NDCs to the SEER*Rx reference (01_imported_ndc.rds)
+# on ndc9. We normalize here and save two outputs:
+#   02_dispensing_patids.rds -- distinct patid only (backward-compat for any other consumer)
+#   02_dispensing_ndc.rds   -- distinct patid + ndc9 (used by 03_exposure.R for real NDC join)
+#
+# NDC normalization per SAS V5_12 findings #3:
+#   dispensing ndc9 = first 9 chars of the digit-stripped dispensing NDC
+#   e.g. "72205006101" -> strip non-digits -> "72205006101" -> first 9 -> "722050061"
 dispensing <- readRDS(file.path(data_dir_processed, "01_imported_dispensing.rds"))
+
 dispensing_patids <- data.frame(patid = unique(dispensing$patid))
 saveRDS(dispensing_patids, file.path(data_dir_processed, "02_dispensing_patids.rds"))
 message("Saved: 02_dispensing_patids.rds (", nrow(dispensing_patids), " patients with dispensing records)")
-rm(dispensing, dispensing_patids); gc(verbose = FALSE)
+
+disp <- dplyr::transmute(
+  dispensing,
+  patid,
+  ndc_raw = ndc,
+  ndc9    = substr(stringr::str_remove_all(as.character(ndc), "[^0-9]"), 1, 9)
+)
+
+# Detect non-standard NDC lengths (7/8-char codes) before deduplication
+ndc_len_report <- disp |>
+  dplyr::mutate(ndc_len = nchar(ndc9)) |>
+  dplyr::count(ndc_len, name = "n_rows")
+message("  Dispensing ndc9 length distribution (pre-dedup):")
+print(ndc_len_report)
+
+dispensing_ndc <- dplyr::distinct(disp, patid, ndc9, .keep_all = TRUE)
+saveRDS(dispensing_ndc, file.path(data_dir_processed, "02_dispensing_ndc.rds"))
+message("Saved: 02_dispensing_ndc.rds (", nrow(dispensing_ndc), " distinct patid x ndc9 rows)")
+
+rm(dispensing, dispensing_patids, disp, dispensing_ndc, ndc_len_report); gc(verbose = FALSE)
 
 # ========================================
 # Section 5 -- Missing Value Report (CLN-04)

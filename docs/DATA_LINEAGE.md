@@ -520,9 +520,41 @@ with a `=== MUST VERIFY ON HIPERGATOR ===` section that mirrors this list at run
   case-mismatch risk is real: SAS on Linux writes lowercase filenames, but R imports using
   `"Icd10_groups2.sas7bdat"`. A case-only mismatch is classified as `FAIL` by the checker.
 
-- **`ndc_cond2.sas7bdat`, `surgerycodes.sas7bdat`, `sctcodes.sas7bdat`** (WARN-tier): pipeline
-  runs without them but chemo/surgery identification will be incomplete. Deferral is intentional
-  for the current R translation; these files should be located and imported in a future phase.
+- **`ndc_cond2.sas7bdat`** (RESOLVED): The SEER*Rx NDC reference previously read from this SAS
+  table is now sourced from `reference/ndconc_results_new.csv` (public SEER*Rx export committed
+  to the repo). `R/00_build_ndc.R` builds `01_imported_ndc.rds`; `R/03_exposure.R` joins
+  dispensing NDC9 to this reference and derives `chemo_disp` (codes 2-6) and `anc_disp` (code 1)
+  per SAS V5_12 `!= "1"` rule. No HiPerGator file access required.
+
+- **surgerycodes.sas7bdat, sctcodes.sas7bdat** (WARN-tier): pipeline runs without them but
+  surgery identification will be incomplete. Deferral is intentional for the current R
+  translation; these files should be located and imported in a future phase.
+
+---
+
+## TODO(ERIN): Hormonal Therapy NDCs counted as chemo — confirm intent
+
+**Added:** 2026-11-02 (fix #17, NDC dispensing pipeline)
+
+Under the SAS V5_12 dispensing rule (`SEERRXCATEGORY != "1"`), **Hormonal Therapy NDCs are
+counted as chemo-like** (non-ancillary). This includes corticosteroids such as **prednisone**
+and **dexamethasone**, which have SEERRxCategory = "Hormonal Therapy" (code "4") in the
+SEER*Rx export. With 1,747+ Hormonal Therapy NDC entries in the reference table, this rule
+may inflate `chemo_disp` for patients whose dispensing records are primarily supportive-care
+drugs rather than cytotoxic chemotherapy.
+
+**Current R behavior (matches SAS V5_12 exactly):**
+- `chemo_disp = 1` if any dispensing NDC matches seer_cat_code in {"2","3","4","5","6"}
+- `anc_disp = 1` if any dispensing NDC matches seer_cat_code == "1"
+- Hormonal Therapy (code "4") → counted as `chemo_disp`, NOT `anc_disp`
+
+**Question for Erin:** Should Hormonal Therapy (code "4") NDCs — particularly supportive-care
+corticosteroids — be reclassified to ancillary (code "1" behavior) for the chemo flag, or does
+the current V5_12 rule reflect the intended analysis? If reclassification is desired, update
+`R/03_exposure.R` Section 3 to exclude code "4" from the chemo set:
+```r
+chemo_disp = as.integer(any(seer_cat_code %in% c("2","3","5","6"), na.rm = TRUE))
+```
 
 - **Cross-reference**: `docs/column_lineage.csv` documents the `first_can_ruca` and
   `first_can_sdi_score` broken-pipe status. These must be resolved before the pipeline can

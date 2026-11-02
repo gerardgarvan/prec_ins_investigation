@@ -9,7 +9,9 @@
 #
 # Inputs:  data/processed/03_cohort.rds           (from 03_cohort.R)
 #          data/processed/02_proc_patient_flags.rds (replaces 02_proc_combined.rds)
-#          data/processed/02_dispensing_patids.rds  (replaces 01_imported_dispensing.rds)
+#          data/processed/02_dispensing_patids.rds  (backward-compat; patid only)
+#          data/processed/02_dispensing_ndc.rds     (new: distinct patid + ndc9 for NDC join)
+#          data/processed/01_imported_ndc.rds       (new: SEER*Rx NDC reference from 00_build_ndc.R)
 #          data/processed/02_merged_complete.rds    (encounter rows; carries group_site)
 #          data/processed/01_formats.rds
 # Outputs: data/processed/03_exposure.rds
@@ -43,9 +45,12 @@ cohort <- readRDS(file.path(data_dir_processed, "03_cohort.rds"))
 # Derived per proc part in 02_clean.R — replaces loading 02_proc_combined.rds.
 proc_patient_flags <- readRDS(file.path(data_dir_processed, "02_proc_patient_flags.rds"))
 
-# Distinct patids with any dispensing record (NDC-based chemo identification).
-# Reduced in 02_clean.R — replaces loading the full dispensing table.
-dispensing_patids <- readRDS(file.path(data_dir_processed, "02_dispensing_patids.rds"))
+# SEER*Rx NDC reference table (ndc9 key + seer_cat_code 1-6).
+# Built by 00_build_ndc.R from reference/ndconc_results_new.csv.
+ndc_ref <- readRDS(file.path(data_dir_processed, "01_imported_ndc.rds"))
+
+# Dispensing with normalized ndc9 (distinct patid + ndc9, built in 02_clean.R Section 4c).
+dispensing_ndc <- readRDS(file.path(data_dir_processed, "02_dispensing_ndc.rds"))
 
 # merged_complete: one row per encounter; carries group_site from dx_encounter.
 # Replaces merged_enc_dx (which was one row per encounter-dx pair).
@@ -54,7 +59,8 @@ merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds
 message("Loaded datasets:")
 message("  cohort:              ", format(nrow(cohort),              big.mark = ","), " patients")
 message("  proc_patient_flags:  ", format(nrow(proc_patient_flags),  big.mark = ","), " patients with proc records")
-message("  dispensing_patids:   ", format(nrow(dispensing_patids),   big.mark = ","), " patients with dispensing records")
+message("  ndc_ref:             ", format(nrow(ndc_ref),             big.mark = ","), " distinct ndc9 x seer_cat_code pairs")
+message("  dispensing_ndc:      ", format(nrow(dispensing_ndc),      big.mark = ","), " distinct patid x ndc9 rows")
 message("  merged_complete:     ", format(nrow(merged_complete),     big.mark = ","), " encounter rows")
 
 # ========================================
@@ -82,32 +88,51 @@ cohort <- cohort %>%
     sct_proc       = replace_na(sct_proc,       0L)
   )
 
-# Dispensing-based chemo (NDC): join dispensing_patids to cohort
-# SAS V5_12: joins dispensing to ndc_cond2 where SEERRxCategory != "1" (Ancillary)
-# Without ndc_cond2 reference, all dispensing records are treated as potential chemo.
-# EDGE CASE: requires ndc_cond2 validation on HiPerGator
-disp_chemo <- dispensing_patids %>%
+# Dispensing-based chemo and ancillary flags (NDC join to SEER*Rx reference)
+# SAS V5_12 lines 22-42: join dispensing NDC9 to ndc_cond2 (SEER*Rx table) on ndc9.
+# chemo_disp = 1 if any matched category code in {"2","3","4","5","6"} (i.e. != "1")
+# anc_disp   = 1 if any matched category code == "1" (Ancillary Therapy)
+# No date window applied (V5_12 dispensing join has no dispense_date filter).
+
+disp_cat <- dispensing_ndc %>%
   filter(patid %in% cohort$patid) %>%
-  mutate(chemo_disp = 1L)
-message("  Patients with dispensing-based chemo: ", nrow(disp_chemo))
-message("  EDGE CASE: All dispensing records treated as potential chemo until ndc_cond2 reference available")
+  left_join(ndc_ref %>% distinct(ndc9, seer_cat_code), by = "ndc9")
+
+# Log unmatched NDC lengths (7/8-char non-standard codes + 9-char no-match)
+unmatched <- disp_cat %>% filter(is.na(seer_cat_code))
+message("  Dispensing NDC unmatched to SEER*Rx reference: ", nrow(unmatched))
+if (nrow(unmatched) > 0) {
+  print(unmatched %>% dplyr::count(ndc_len = nchar(ndc9)))
+}
+
+# Patient-level flags: chemo_disp (codes 2-6) and anc_disp (code 1)
+disp_flags <- disp_cat %>%
+  group_by(patid) %>%
+  summarise(
+    chemo_disp = as.integer(any(seer_cat_code %in% c("2", "3", "4", "5", "6"), na.rm = TRUE)),
+    anc_disp   = as.integer(any(seer_cat_code == "1", na.rm = TRUE)),
+    .groups    = "drop"
+  )
+message("  Patients with dispensing-based chemo (codes 2-6): ", sum(disp_flags$chemo_disp))
+message("  Patients with dispensing-based ancillary (code 1): ", sum(disp_flags$anc_disp))
 
 cohort <- cohort %>%
-  left_join(disp_chemo, by = "patid") %>%
+  left_join(disp_flags, by = "patid") %>%
   mutate(
     chemo_disp = replace_na(chemo_disp, 0L),
-    chemo    = if_else(chemo_proc    == 1L | chemo_disp == 1L, 1L, 0L),
-    surgery  = surgery_proc,
+    anc_disp   = replace_na(anc_disp,   0L),
+    chemo     = if_else(chemo_proc == 1L | chemo_disp == 1L, 1L, 0L),
+    surgery   = surgery_proc,
     radiation = radiation_proc,
-    sct      = sct_proc
+    sct       = sct_proc
   ) %>%
-  select(-chemo_proc, -chemo_disp, -surgery_proc, -radiation_proc, -sct_proc)
+  select(-chemo_proc, -surgery_proc, -radiation_proc, -sct_proc)
 
 message("  chemo:     ", sum(cohort$chemo    == 1L), " / ", nrow(cohort), " patients")
 message("  surgery:   ", sum(cohort$surgery  == 1L), " / ", nrow(cohort), " patients")
 message("  radiation: ", sum(cohort$radiation == 1L), " / ", nrow(cohort), " patients")
 message("  sct:       ", sum(cohort$sct       == 1L), " / ", nrow(cohort), " patients")
-message("  EDGE CASE: Surgery uses ICD-10-PCS Medical/Surgical section (V5_12 surgerycodes ref needed)")
+message("  NOTE: Surgery uses ICD-10-PCS Medical/Surgical section (V5_12 surgerycodes ref needed)")
 
 # ========================================
 # Section 7 -- Ancillary Therapy Identification
@@ -117,26 +142,24 @@ message("  EDGE CASE: Surgery uses ICD-10-PCS Medical/Surgical section (V5_12 su
 # V5_12 lines 725-851: Ancillary therapy from dispensing/prescribing/med_admin
 # where SEERRxCategory == "1" (Ancillary Therapy)
 #
-# NOTE: Without ndc_cond2 reference table, we cannot distinguish ancillary from chemo
-# Mark all non-treatment patients as having ancillary therapy if they appear in the cohort
-# This ensures intensity=0 category exists for patients with no other treatment
+# anc_disp was derived in Section 3 from the SEER*Rx NDC join (seer_cat_code == "1").
+# Per SAS V5_12 != "1" rule: anc = 1 if patient has any dispensing record with
+# SEERRxCategory "Ancillary Therapy" (code "1").
 
 message("\n=== Section 7: Ancillary Therapy Identification ===")
 
 # Per SAS V5_14 intensity logic line 181-183:
 # if (surgery=0 and radiation=0) and chemo=0 and anc=1 then intensity=0
-# For now, we'll derive anc as a flag for patients with no other treatment
-# who are still in the cohort (implies they had SOME medical interaction)
+# anc_disp (code "1") is the dispensing-based ancillary flag from Section 3.
 
 cohort <- cohort %>%
   mutate(
-    anc = if_else(surgery == 0 & radiation == 0 & chemo == 0 & sct == 0, 1L, 0L)
-  )
+    anc = if_else(anc_disp == 1L, 1L, 0L)
+  ) %>%
+  select(-anc_disp, -chemo_disp)
 
-message("  Final ancillary distribution: ", sum(cohort$anc == 1), " ancillary only / ",
-        sum(cohort$anc == 0), " has other treatment")
-message("  NOTE: Ancillary therapy identification requires ndc_cond2 reference (SEERRxCategory=='1')")
-message("  EDGE CASE: Ancillary flag assigned to patients with no surgery/chemo/radiation/sct")
+message("  Final ancillary distribution: ", sum(cohort$anc == 1), " ancillary / ",
+        sum(cohort$anc == 0), " no ancillary dispensing")
 
 # ========================================
 # Section 8 -- Treatment Intensity (EXP-02)

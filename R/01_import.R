@@ -125,6 +125,14 @@ source(here::here("R", "00_build_ruca.R"))
 # Consumed by R/03_geo.R (first_can_sdi_score derivation).
 source(here::here("R", "00_build_sdi.R"))
 
+# GROUP 8c: NDC (National Drug Code) reference table from SEER*Rx public export
+# Source: reference/ndconc_results_new.csv (SEER*Rx NDC export; no patient data).
+# Reads CSV, strips dashes from NDC_9_Product_ to build 9-digit ndc9 key, recodes
+# SEERRxCategory text to single-char codes 1-6 ($seer format per V5_12), and saves
+# 01_imported_ndc.rds.
+# Consumed by R/03_exposure.R (chemo_disp / anc_disp patient flags via ndc9 join).
+source(here::here("R", "00_build_ndc.R"))
+
 message("\n========================================")
 message("Import complete at ", Sys.time())
 message("Checkpoints saved to: ", data_dir_processed)
@@ -140,4 +148,5 @@ message("  01_imported_enc_part1.rds, 01_imported_enc_part2.rds")
 message("  01_imported_icd_groups.rds")
 message("  01_imported_ruca.rds")
 message("  01_imported_sdi.rds")
+message("  01_imported_ndc.rds")
 message("\nNext step: R/02_clean.R (Phase 2)")
