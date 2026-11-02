@@ -87,6 +87,22 @@ import_sas <- function(filename, data_dir = data_dir_raw, description = filename
   df
 }
 
+#' Read a patient-level checkpoint, migrating legacy `id` -> `patid`.
+#' Checkpoints written before import_sas() gained the id->patid rename still
+#' carry `id`; import_parts()/import_and_save() skip existing files so those
+#' stale files are never regenerated. Route every patient checkpoint read
+#' through this so downstream code always sees `patid`.
+read_checkpoint <- function(path) {
+  df <- readRDS(path)
+  if ("id" %in% names(df) && !"patid" %in% names(df)) {
+    df <- dplyr::rename(df, patid = id)
+  } else if ("id" %in% names(df) && "patid" %in% names(df)) {
+    stop("read_checkpoint(): both 'id' and 'patid' present in ", path,
+         " -- ambiguous rename")
+  }
+  df
+}
+
 #' Import several SAS files that share a layout, saving each part to its own
 #' RDS file immediately and discarding it from RAM before reading the next.
 #' Returns a character vector of the saved RDS paths (NOT a data frame).
