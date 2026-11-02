@@ -17,14 +17,16 @@
 #
 # SDI derivation (SAS V5_5 lines 359-383):
 #   ADDRESS_ZIP5 -> zcta (via 01_imported_zcta.rds)
-#   zcta -> sdi_score (via ACS2015_zctaallvars.xlsx sheet "sdi")
+#   zcta -> sdi_score (via 01_imported_sdi.rds, from 00_build_sdi.R, RGC SDI 2011-2015 by ZCTA)
 #   Patients with sdi_score = NA are deleted (SAS line 383)
+#   Note: ZIPs that yield "No ZCTA" or NA from the zcta lookup also produce NA sdi_score
+#         and are dropped by the filter(!is.na(sdi_score)) — satisfies SAS "drop No ZCTA" step.
 #
 # Inputs:  data/processed/01_imported_address.rds
 #          data/processed/01_imported_ruca.rds
 #          data/processed/01_imported_zcta.rds
+#          data/processed/01_imported_sdi.rds  (SDI source — produced by 00_build_sdi.R)
 #          data/processed/03_cohort.rds
-#          reference/ACS2015_zctaallvars.xlsx  (SDI source — stop() if absent)
 # Outputs: data/processed/03_geo.rds  (one row per patient with RUCA; SDI if available)
 #          data/processed/03_geo_attrition.rds
 
@@ -244,29 +246,23 @@ message("  ruca3=NA:         ", sum(is.na(ruca_combined$ruca3)))
 # ========================================
 # Section 7 -- SDI Derivation (SAS V5_5 lines 359-383)
 # ========================================
-# ADDRESS_ZIP5 -> zcta (01_imported_zcta.rds) -> sdi_score (ACS2015_zctaallvars.xlsx)
+# ADDRESS_ZIP5 -> zcta (01_imported_zcta.rds) -> sdi_score (01_imported_sdi.rds)
+# SDI source: RGC SDI 2011-2015 by ZCTA (produced by 00_build_sdi.R from
+#   reference/asset_rgc_sdi_2011_through_2015_zcta.csv).
 
 message("\n=== Section 7: SDI Derivation ===")
-
-sdi_path <- here::here("reference", "ACS2015_zctaallvars.xlsx")
-
-if (!file.exists(sdi_path)) {
-  stop(
-    "SDI source missing: reference/ACS2015_zctaallvars.xlsx\n",
-    "TODO(ERIN): Obtain ACS2015_zctaallvars.xlsx from HiPerGator (ww library).\n",
-    "Sheet 'sdi', A1:B32991 — two columns: zcta (ZCTA code), sdi_score (numeric).\n",
-    "Place at reference/ACS2015_zctaallvars.xlsx to enable SDI derivation."
-  )
-}
 
 # ZCTA lookup: ADDRESS_ZIP5 -> zcta
 zcta <- readRDS(file.path(data_dir_processed, "01_imported_zcta.rds"))
 if ("id" %in% names(zcta)) zcta <- rename(zcta, patid = id)
 # zcta table has at minimum: ADDRESS_ZIP5, zcta
 
-sdi_raw <- readxl::read_excel(sdi_path, sheet = "sdi", range = "A1:B32991",
-                               col_types = c("text", "numeric"))
-names(sdi_raw) <- c("zcta", "sdi_score")
+sdi_path <- file.path(data_dir_processed, "01_imported_sdi.rds")
+if (!file.exists(sdi_path)) {
+  stop("SDI lookup missing: 01_imported_sdi.rds\n",
+       "Run R/00_build_sdi.R (sourced from 01_import.R) first.")
+}
+sdi_raw <- readRDS(sdi_path)   # columns: zcta (5-char text), sdi_score (1-100 percentile)
 
 message("  SDI lookup rows: ", nrow(sdi_raw))
 
