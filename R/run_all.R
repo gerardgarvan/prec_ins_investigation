@@ -20,6 +20,7 @@ scripts <- c(
   "02_merge.R",       # Data merging: encounter-dx-proc-provider joins with validation
   # Phase 3 scripts:
   "03_cohort.R",      # Cohort construction: exclusion criteria, attrition, CONSORT
+  "03_geo.R",         # Geographic covariates: first_can_ruca, first_can_sdi_score
   "03_exposure.R",    # Exposure variables: insurance change, treatment intensity, cancer site, chemo
   "03_outcomes.R",    # Outcome variables: visit counts, person-time
   "03_covariates.R",  # Covariate processing, final analytical dataset assembly

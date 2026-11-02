@@ -109,6 +109,14 @@ source(here::here("R", "00_build_icd_groups.R"))
 # See DATA_LINEAGE.md and reference/README.md for context.
 source(here::here("R", "00_build_prov_spec.R"))
 
+# GROUP 8: RUCA (Rural-Urban Commuting Area) lookup table
+# Replaces direct SAS import of RUCA2010zipcode.xlsx via libname.
+# Reads reference/RUCA2010zipcode.xlsx sheet "Data", renames columns to SAS names
+# (ZIP_CODE -> ADDRESS_ZIP5, STATE -> STATE_ruca, ZIP_TYPE -> ZIP_TYPE_ruca),
+# converts RUCA1/RUCA2 to numeric, and saves 01_imported_ruca.rds.
+# Consumed by R/03_geo.R (first_can_ruca derivation).
+source(here::here("R", "00_build_ruca.R"))
+
 message("\n========================================")
 message("Import complete at ", Sys.time())
 message("Checkpoints saved to: ", data_dir_processed)
@@ -122,4 +130,5 @@ message("  01_imported_dispensing.rds")
 message("  01_imported_proc_part1.rds .. 01_imported_proc_part7.rds")
 message("  01_imported_enc_part1.rds, 01_imported_enc_part2.rds")
 message("  01_imported_icd_groups.rds")
+message("  01_imported_ruca.rds")
 message("\nNext step: R/02_clean.R (Phase 2)")

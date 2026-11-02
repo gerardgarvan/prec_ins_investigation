@@ -39,6 +39,12 @@ message("========================================")
 # Load Phase 3 cohort with exposures + outcomes
 analytical <- readRDS(file.path(data_dir_processed, "03_outcomes.rds"))
 
+# Load geographic covariates (first_can_ruca, first_can_sdi_score) from 03_geo.R
+geo <- readRDS(file.path(data_dir_processed, "03_geo.rds"))
+analytical <- analytical %>%
+  left_join(geo %>% select(patid, first_can_ruca, first_can_sdi_score),
+            by = "patid")
+
 message("Loaded datasets:")
 message("  analytical (from 03_outcomes.rds): ", format(nrow(analytical), big.mark = ","), " patients")
 message("  Variables: ", ncol(analytical))
@@ -144,13 +150,6 @@ print(janitor::tabyl(analytical, age_cat))
 
 message("\n=== Section 7: SDI Categorization ===")
 
-# TODO(ERIN): first_can_sdi_score source unconfirmed — no V5 SAS file derives it
-# from a code list. Confirm the SDI linkage table and column name on HiPerGator.
-if (!"first_can_sdi_score" %in% names(analytical)) {
-  stop("first_can_sdi_score not found in 03_outcomes.rds. ",
-       "TODO(ERIN): confirm SDI linkage table and column name on HiPerGator.")
-}
-
 analytical <- analytical %>%
   mutate(
     # Rename for model variable naming (SAS V5_15 line 23: first_can_sdi_score as first_sdi)
@@ -175,16 +174,9 @@ print(janitor::tabyl(analytical, first_sdi2))
 
 message("\n=== Section 8: RUCA Classification ===")
 
-# TODO(ERIN): first_can_ruca source unconfirmed — no V5 SAS file derives it
-# from a code list. Confirm the RUCA linkage table and column name on HiPerGator.
-if (!"first_can_ruca" %in% names(analytical)) {
-  stop("first_can_ruca not found in 03_outcomes.rds. ",
-       "TODO(ERIN): confirm RUCA linkage table and column name on HiPerGator.")
-}
-
 analytical <- analytical %>%
   mutate(
-    first_ruca = first_can_ruca  # Rename for model variable naming
+    first_ruca = first_can_ruca  # Rename for model variable naming (SAS V5_15 line 22)
   )
 
 message("RUCA distribution:")
