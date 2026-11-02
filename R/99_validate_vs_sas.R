@@ -12,80 +12,112 @@ library(here); source(here("R", "config.R"))
 library(haven)
 library(tidyverse)
 
+# --- Helper: stop with a clear message if a required file is missing ---
+require_file <- function(path) {
+  if (!file.exists(path)) stop("Required file not found: ", path, call. = FALSE)
+  path
+}
+
 # --- Load SAS reference tables ---
-sas_baseline <- read_sas(file.path(data_dir_raw, "baseline.sas7bdat")) |>
+sas_baseline <- read_sas(require_file(file.path(data_dir_raw, "baseline.sas7bdat"))) |>
   rename_with(tolower)
 
 sas_co <- lapply(1:4, function(i)
-  read_sas(file.path(data_dir_raw, paste0("change_outcome", i, ".sas7bdat"))) |>
+  read_sas(require_file(
+    file.path(data_dir_raw, paste0("change_outcome", i, ".sas7bdat"))
+  )) |>
     rename_with(tolower) |>
     mutate(outcome_num = i))
 
-# --- Load R checkpoints ---
-r_cohort   <- readRDS(file.path(data_dir_processed, "03_cohort.rds"))
-r_outcomes <- readRDS(file.path(data_dir_processed, "03_outcomes.rds"))
+# --- Load R checkpoints (must run 03_cohort.R and 03_outcomes.R first) ---
+cohort_path   <- file.path(data_dir_processed, "03_cohort.rds")
+outcomes_path <- file.path(data_dir_processed, "03_outcomes.rds")
+
+r_checkpoints_ready <- file.exists(cohort_path) && file.exists(outcomes_path)
+if (!r_checkpoints_ready) {
+  missing <- c(cohort_path, outcomes_path)[!file.exists(c(cohort_path, outcomes_path))]
+  message("=== R checkpoints not yet available ===")
+  message("  Missing: ", paste(missing, collapse = "\n           "))
+  message("  Run the pipeline through 03_outcomes.R first, then re-run this script.")
+  message("  SAS-only checks (CHECK 4 membership counts) will still run below.")
+}
+
+r_cohort   <- if (file.exists(cohort_path))   readRDS(cohort_path)   else NULL
+r_outcomes <- if (file.exists(outcomes_path)) readRDS(outcomes_path) else NULL
 
 # -----------------------------------------------------------
-# CHECK 1: Cohort membership
+# CHECK 1: Cohort membership (requires 03_cohort.rds)
 # -----------------------------------------------------------
-sas_ids <- sas_baseline$id
-r_ids   <- r_cohort$patid
-
-n_sas      <- length(sas_ids)
-n_r        <- length(r_ids)
-n_both     <- length(intersect(sas_ids, r_ids))
-n_sas_only <- length(setdiff(sas_ids, r_ids))
-n_r_only   <- length(setdiff(r_ids, sas_ids))
-
 message("=== CHECK 1: Cohort membership ===")
-message("  SAS baseline N: ", n_sas)
-message("  R cohort    N: ", n_r)
-message("  Agreement (in both): ", n_both, " (", round(100 * n_both / n_sas, 2), "% of SAS)")
-message("  In SAS only: ", n_sas_only)
-message("  In R only:   ", n_r_only)
-# Expected: n_sas_only driven by R/03_cohort.R:199 age>=18 filter (confirmed SAS deviation).
-# n_r_only should be 0.
+if (is.null(r_cohort)) {
+  message("  SKIPPED — 03_cohort.rds not available")
+} else {
+  sas_ids <- sas_baseline$id
+  r_ids   <- r_cohort$patid
+
+  n_sas      <- length(sas_ids)
+  n_r        <- length(r_ids)
+  n_both     <- length(intersect(sas_ids, r_ids))
+  n_sas_only <- length(setdiff(sas_ids, r_ids))
+  n_r_only   <- length(setdiff(r_ids, sas_ids))
+
+  message("  SAS baseline N: ", n_sas)
+  message("  R cohort    N: ", n_r)
+  message("  Agreement (in both): ", n_both, " (", round(100 * n_both / n_sas, 2), "% of SAS)")
+  message("  In SAS only: ", n_sas_only)
+  message("  In R only:   ", n_r_only)
+  # Expected: n_sas_only driven by R/03_cohort.R:199 age>=18 filter (confirmed SAS deviation).
+  # n_r_only should be 0.
+}
 
 # -----------------------------------------------------------
-# CHECK 2: ENCOUNTERID match on shared IDs
+# CHECK 2: ENCOUNTERID match on shared IDs (requires 03_cohort.rds)
 # -----------------------------------------------------------
 # NOTE: baseline.ENCOUNTERID is the LAST follow-up encounter per patient
 # (NODUPKEY by descending admit_date in SAS_CODE_FOR_V5_9.sas), NOT the
 # first cancer encounter. R currently stores first_can_encounterid.
 # A mismatch here is EXPECTED until R is updated to track the last encounter.
-shared <- inner_join(
-  sas_baseline |> select(id, encounterid),
-  r_cohort     |> select(patid, first_can_encounterid),
-  by = c("id" = "patid")
-)
-enc_match <- mean(shared$encounterid == shared$first_can_encounterid, na.rm = TRUE)
 message("=== CHECK 2: ENCOUNTERID match (SAS last vs R first) ===")
-message("  Agreement rate: ", round(100 * enc_match, 2), "%")
-message("  (Mismatch expected — SAS stores last encounter, R stores first cancer encounter)")
-
-# -----------------------------------------------------------
-# CHECK 3: Covariate agreement on shared IDs
-# -----------------------------------------------------------
-cov_cols <- c("first_can_sexx", "first_can_racee", "first_can_hispanicc",
-              "first_can_payer_type_primary", "age2")
-
-sas_cov <- sas_baseline |> select(id, all_of(cov_cols))
-r_cov   <- r_cohort     |> select(patid, all_of(cov_cols)) |>
-  rename(id = patid)
-
-cov_shared <- inner_join(sas_cov, r_cov, by = "id", suffix = c("_sas", "_r"))
-
-message("=== CHECK 3: Covariate agreement ===")
-for (col in cov_cols) {
-  sas_col <- paste0(col, "_sas")
-  r_col   <- paste0(col, "_r")
-  if (sas_col %in% names(cov_shared) && r_col %in% names(cov_shared)) {
-    rate <- mean(cov_shared[[sas_col]] == cov_shared[[r_col]], na.rm = TRUE)
-    message("  ", col, ": ", round(100 * rate, 2), "% agreement")
-  }
+if (is.null(r_cohort)) {
+  message("  SKIPPED — 03_cohort.rds not available")
+} else {
+  shared <- inner_join(
+    sas_baseline |> select(id, encounterid),
+    r_cohort     |> select(patid, first_can_encounterid),
+    by = c("id" = "patid")
+  )
+  enc_match <- mean(shared$encounterid == shared$first_can_encounterid, na.rm = TRUE)
+  message("  Agreement rate: ", round(100 * enc_match, 2), "%")
+  message("  (Mismatch expected — SAS stores last encounter, R stores first cancer encounter)")
 }
-# Expected degraded agreement on first_can_payer_type_primary from M1-M4 mis-mappings
-# (14x, 4xx, 6xx, 7x, 'OT') documented in DATA_LINEAGE.md Task 2.
+
+# -----------------------------------------------------------
+# CHECK 3: Covariate agreement on shared IDs (requires 03_cohort.rds)
+# -----------------------------------------------------------
+message("=== CHECK 3: Covariate agreement ===")
+if (is.null(r_cohort)) {
+  message("  SKIPPED — 03_cohort.rds not available")
+} else {
+  cov_cols <- c("first_can_sexx", "first_can_racee", "first_can_hispanicc",
+                "first_can_payer_type_primary", "age2")
+
+  sas_cov <- sas_baseline |> select(id, all_of(cov_cols))
+  r_cov   <- r_cohort     |> select(patid, all_of(cov_cols)) |>
+    rename(id = patid)
+
+  cov_shared <- inner_join(sas_cov, r_cov, by = "id", suffix = c("_sas", "_r"))
+
+  for (col in cov_cols) {
+    sas_col <- paste0(col, "_sas")
+    r_col   <- paste0(col, "_r")
+    if (sas_col %in% names(cov_shared) && r_col %in% names(cov_shared)) {
+      rate <- mean(cov_shared[[sas_col]] == cov_shared[[r_col]], na.rm = TRUE)
+      message("  ", col, ": ", round(100 * rate, 2), "% agreement")
+    }
+  }
+  # Expected degraded agreement on first_can_payer_type_primary from M1-M4 mis-mappings
+  # (14x, 4xx, 6xx, 7x, 'OT') documented in DATA_LINEAGE.md Task 2.
+}
 
 # -----------------------------------------------------------
 # CHECK 4: change_outcome* — patient-level membership
@@ -95,11 +127,16 @@ for (col in cov_cols) {
 message("=== CHECK 4: change_outcome membership (patient-level) ===")
 for (i in 1:4) {
   sas_co_ids <- sas_co[[i]] |> distinct(id) |> pull(id)
-  # r_last_ids: derive from r_outcomes filtered to outcome_type == i.
-  # Adjust column/filter when 03_outcomes.rds structure is confirmed.
-  # r_last_ids <- r_outcomes |> filter(outcome_num == i) |> distinct(patid) |> pull(patid)
-  message("  change_outcome", i, " SAS unique IDs: ", length(sas_co_ids),
-          "  (R comparison pending 03_outcomes.rds structure)")
+  if (is.null(r_outcomes)) {
+    message("  change_outcome", i, " SAS unique IDs: ", length(sas_co_ids),
+            "  (R comparison SKIPPED — 03_outcomes.rds not available)")
+  } else {
+    # r_last_ids: derive from r_outcomes filtered to outcome_type == i.
+    # Adjust column/filter when 03_outcomes.rds structure is confirmed.
+    # r_last_ids <- r_outcomes |> filter(outcome_num == i) |> distinct(patid) |> pull(patid)
+    message("  change_outcome", i, " SAS unique IDs: ", length(sas_co_ids),
+            "  (R comparison pending 03_outcomes.rds structure confirmation)")
+  }
 }
 
 # -----------------------------------------------------------
