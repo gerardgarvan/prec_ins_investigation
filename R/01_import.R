@@ -117,6 +117,14 @@ source(here::here("R", "00_build_prov_spec.R"))
 # Consumed by R/03_geo.R (first_can_ruca derivation).
 source(here::here("R", "00_build_ruca.R"))
 
+# GROUP 8b: SDI (Social Deprivation Index) lookup table
+# Source: reference/asset_rgc_sdi_2011_through_2015_zcta.csv (Robert Graham Center SDI,
+#         2011-2015 ACS by ZCTA). Replaces reference/ACS2015_zctaallvars.xlsx (never obtained).
+# Reads CSV, zero-pads ZCTA5_FIPS to 5-char text, keeps SDI_score (1-100 percentile),
+# and saves 01_imported_sdi.rds.
+# Consumed by R/03_geo.R (first_can_sdi_score derivation).
+source(here::here("R", "00_build_sdi.R"))
+
 message("\n========================================")
 message("Import complete at ", Sys.time())
 message("Checkpoints saved to: ", data_dir_processed)
@@ -131,4 +139,5 @@ message("  01_imported_proc_part1.rds .. 01_imported_proc_part7.rds")
 message("  01_imported_enc_part1.rds, 01_imported_enc_part2.rds")
 message("  01_imported_icd_groups.rds")
 message("  01_imported_ruca.rds")
+message("  01_imported_sdi.rds")
 message("\nNext step: R/02_clean.R (Phase 2)")
