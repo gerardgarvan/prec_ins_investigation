@@ -249,6 +249,7 @@ None identified.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 261102-kyh | Implement reference workbook integration for cancer-site ICD lookup and provider specialty | 2026-11-02 | 80dda62 | [261102-kyh-implement-reference-workbook-integration](.planning/quick/261102-kyh-implement-reference-workbook-integration/) |
+| 261102-moc | Implement first_can_sdi_score via 00_build_sdi.R and RGC SDI CSV; remove ACS2015_zctaallvars.xlsx fail-fast from 03_geo.R; 4 SDI unit tests; CHECK 7 in 99_validate_vs_sas.R | 2026-11-02 | d47b3e4 | [261102-moc-implement-sdi-pipeline-inspect-asset-rgc](.planning/quick/261102-moc-implement-sdi-pipeline-inspect-asset-rgc/) |
 
 ---
 *State tracking started: 2026-04-16*
