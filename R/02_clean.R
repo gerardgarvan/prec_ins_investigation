@@ -64,21 +64,27 @@ message("Encounter rows: ", format(nrow(encounters), big.mark = ","))
 # (2) combined datasets are prerequisites for 02_merge.R joins;
 # (3) keeps 02_merge.R focused solely on relational join operations.
 
-# Combine diagnosis parts from individual RDS files (saved one-per-part during import)
-# Reading and binding here rather than at import time keeps peak RAM to ~1 part at a time.
+# Combine diagnosis parts and save immediately — free RAM before loading encounters.
+# Peak RAM = one combined dataset at a time, not all three simultaneously.
 # SAS source: SAS_CODE_FOR_V5_2.sas lines 100-108
 dx_part_files <- sort(list.files(data_dir_processed, pattern = "01_imported_dx_part\\d+\\.rds",
                                   full.names = TRUE))
 dx_combined <- purrr::map(dx_part_files, readRDS) |> dplyr::bind_rows()
 message("Diagnosis rows: ", format(nrow(dx_combined), big.mark = ","),
         " (from ", length(dx_part_files), " parts)")
+saveRDS(dx_combined, file.path(data_dir_processed, "02_dx_combined.rds"))
+message("Saved: 02_dx_combined.rds")
+rm(dx_combined, dx_part_files); gc(verbose = FALSE)
 
-# Combine procedure parts
+# Combine procedure parts and save immediately
 proc_part_files <- sort(list.files(data_dir_processed, pattern = "01_imported_proc_part\\d+\\.rds",
                                     full.names = TRUE))
 proc_combined <- purrr::map(proc_part_files, readRDS) |> dplyr::bind_rows()
 message("Procedure rows: ", format(nrow(proc_combined), big.mark = ","),
         " (from ", length(proc_part_files), " parts)")
+saveRDS(proc_combined, file.path(data_dir_processed, "02_proc_combined.rds"))
+message("Saved: 02_proc_combined.rds")
+rm(proc_combined, proc_part_files); gc(verbose = FALSE)
 
 # ========================================
 # Sections 5-8: Variable recoding and checkpoints (below)
@@ -242,14 +248,7 @@ message("\nSaved: 02_encounters_cleaned.rds (",
         format(nrow(encounters), big.mark = ","), " rows, ",
         ncol(encounters), " cols)")
 
-# Save combined diagnosis and procedure datasets
-saveRDS(dx_combined, file.path(data_dir_processed, "02_dx_combined.rds"))
-message("Saved: 02_dx_combined.rds (",
-        format(nrow(dx_combined), big.mark = ","), " rows)")
-
-saveRDS(proc_combined, file.path(data_dir_processed, "02_proc_combined.rds"))
-message("Saved: 02_proc_combined.rds (",
-        format(nrow(proc_combined), big.mark = ","), " rows)")
+# dx_combined and proc_combined already saved and freed after Section 4
 
 message("\n========================================")
 message("Phase 2 Cleaning complete: ", Sys.time())
