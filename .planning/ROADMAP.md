@@ -142,6 +142,19 @@ Phase 4: Statistical Analysis & Output
 
 Linear dependency chain: each phase requires completion of previous phase. This supports sequential numbered scripts architecture over parallel pipeline automation.
 
+### Phase 5: Data lineage and file inventory: account for the location of every input file and how it flows through the pipeline
+
+**Goal:** Account for the location of every SAS input file and how it flows through the R pipeline — producing a file manifest, column lineage, a narrative with diagrams, and a standalone HiPerGator preflight checker. Reads code only; flags problems but does not fix them.
+**Requirements**: None (phase added post-v1; no formal REQ-IDs)
+**Depends on:** Phase 4
+**Plans:** 4 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Scaffolding: docs/ dir, headered manifest/column-lineage CSVs, 00_check_inputs.R skeleton + check_file_ci test
+- [ ] 05-02-PLAN.md — Populate file_manifest.csv + column_lineage.csv via static analysis (incl. D-11 broken-pipe tracing)
+- [ ] 05-03-PLAN.md — Implement manifest-driven preflight probe loop + severity tiers + dual report writing + tests
+- [ ] 05-04-PLAN.md — Write DATA_LINEAGE.md: git hash, two Mermaid diagrams, broken-pipe narrative, must-verify list
+
 ---
 *Roadmap created: 2026-04-16*
 *Phase 1 planned: 2026-04-16 (3 plans, 3 waves)*
