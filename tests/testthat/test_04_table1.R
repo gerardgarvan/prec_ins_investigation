@@ -22,14 +22,11 @@ test_that("STA-01: Table 1 structure created with tbl_summary", {
   # Verify tbl_summary object class
   expect_true("tbl_summary" %in% class(tbl1))
 
-  # Convert to tibble and check structure
-  tbl1_df <- as_tibble(tbl1)
+  # In gtsummary 2.x, variable labels are in table_body, not as_tibble()
+  expect_gte(ncol(as_tibble(tbl1)), 3)
 
-  # Should have at least 3 columns: label + stat_1 + stat_2
-  expect_gte(ncol(tbl1_df), 3)
-
-  # Verify demographic variables present
-  tbl1_vars <- tbl1_df$label
+  # Verify demographic variables present via table_body$label
+  tbl1_vars <- tbl1$table_body$label
   expect_true(any(grepl("sex|Sex", tbl1_vars, ignore.case = TRUE)))
   expect_true(any(grepl("race|Race", tbl1_vars, ignore.case = TRUE)))
   expect_true(any(grepl("age", tbl1_vars, ignore.case = TRUE)))
@@ -43,10 +40,14 @@ test_that("STA-02: Bivariate tests produce p-values", {
   skip_if_not_installed("gtsummary")
 
   # Create Table 1 with statistical tests
+  # Exclude the `by` variable (change_ins) from label list — gtsummary 2.x errors if by-var is labelled
+  label_list_no_by <- mock_p4_label_list[
+    !sapply(mock_p4_label_list, function(f) deparse(f[[2]]) == "change_ins")
+  ]
   tbl1_with_p <- mock_p4_analytical %>%
     gtsummary::tbl_summary(
       by = change_ins,
-      label = mock_p4_label_list
+      label = label_list_no_by
     ) %>%
     gtsummary::add_p(
       test = list(
@@ -55,12 +56,11 @@ test_that("STA-02: Bivariate tests produce p-values", {
       )
     )
 
-  # Verify p-value column exists
-  tbl1_df <- as_tibble(tbl1_with_p)
-  expect_true("p.value" %in% names(tbl1_df))
+  # p-values are in table_body in gtsummary 2.x
+  expect_true("p.value" %in% names(tbl1_with_p$table_body))
 
   # Extract p-values (excluding NA for headers)
-  p_values <- tbl1_df$p.value[!is.na(tbl1_df$p.value)]
+  p_values <- tbl1_with_p$table_body$p.value[!is.na(tbl1_with_p$table_body$p.value)]
 
   # At least one p-value should be present
   expect_gt(length(p_values), 0)
@@ -150,11 +150,11 @@ test_that("STA-07: Cross-tabulation with p-value using gtsummary::tbl_cross", {
   # Convert to tibble
   crosstab_df <- as_tibble(crosstab_p)
 
-  # Should have p.value column
-  expect_true("p.value" %in% names(crosstab_df))
+  # p.value is in table_body in gtsummary 2.x (as_tibble formatting differs by version)
+  expect_true("p.value" %in% names(crosstab_p$table_body))
 
-  # Extract p-value (should be single value for overall test)
-  p_val <- crosstab_df$p.value[!is.na(crosstab_df$p.value)]
+  # Extract p-value from table_body
+  p_val <- crosstab_p$table_body$p.value[!is.na(crosstab_p$table_body$p.value)]
 
   # If p-value exists, should be numeric between 0 and 1
   if (length(p_val) > 0) {

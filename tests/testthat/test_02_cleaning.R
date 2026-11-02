@@ -39,10 +39,11 @@ test_that("CLN-03: Payer codes recode to grouped categories via factor()", {
   # Test: payer code "1" -> "Medicare", "2" -> "Medicaid", "5" -> "Private"
   fmt <- mock_sas_formats$p_payer
   result <- factor(combined$payer_type_primary, levels = fmt$levels, labels = fmt$labels)
-  expect_equal(as.character(result[combined$payer_type_primary == "1"]), "Medicare")
-  expect_equal(as.character(result[combined$payer_type_primary == "2"]), "Medicaid")
-  expect_equal(as.character(result[combined$payer_type_primary == "5"]), "Private")
-  expect_equal(as.character(result[combined$payer_type_primary == "4"]), "Med_Medicaid")
+  # Use %in% (not ==) to avoid NA propagation; unique() because multiple rows per payer code
+  expect_equal(unique(as.character(result[combined$payer_type_primary %in% "1"])), "Medicare")
+  expect_equal(unique(as.character(result[combined$payer_type_primary %in% "2"])), "Medicaid")
+  expect_equal(unique(as.character(result[combined$payer_type_primary %in% "5"])), "Private")
+  expect_equal(unique(as.character(result[combined$payer_type_primary %in% "4"])), "Med_Medicaid")
 })
 
 # ==============================================================================
@@ -77,7 +78,8 @@ test_that("CLN-05: enc_type recodes to labeled factor via sas_formats$enc_type",
   fmt <- mock_sas_formats$enc_type
   result <- factor(mock_encounter1$enc_type, levels = fmt$levels, labels = fmt$labels)
   expect_true(is.factor(result))
-  expect_equal(as.character(result[mock_encounter1$enc_type == "AV"]), "Ambulatory Visit")
+  # Use unique() because mock_encounter1 has two "AV" rows
+  expect_equal(unique(as.character(result[mock_encounter1$enc_type == "AV"])), "Ambulatory Visit")
 })
 
 test_that("CLN-05: discharge_status recodes to labeled factor", {

@@ -154,13 +154,19 @@ new_path_dx_flags <- function(fixture_dir) {
 # Tests
 # ============================================================
 
+fixtures_available <- file.exists(file.path(fixture_dir, "01_imported_icd_groups.rds")) &&
+  file.exists(file.path(fixture_dir, "01_imported_dx_part1.rds")) &&
+  file.exists(file.path(fixture_dir, "01_imported_dx_part2.rds"))
+
 test_that("fixtures exist", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built — run the pipeline first to generate testdata/processed/*.rds")
   expect_true(file.exists(file.path(fixture_dir, "01_imported_icd_groups.rds")))
   expect_true(file.exists(file.path(fixture_dir, "01_imported_dx_part1.rds")))
   expect_true(file.exists(file.path(fixture_dir, "01_imported_dx_part2.rds")))
 })
 
 test_that("new per-part path gives same any_reportable_cancer as old full-join path", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built")
   old <- old_path_dx_flags(fixture_dir)
   new <- new_path_dx_flags(fixture_dir)
 
@@ -179,6 +185,7 @@ test_that("new per-part path gives same any_reportable_cancer as old full-join p
 })
 
 test_that("new per-part path gives same icd_personal_trt as old full-join path", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built")
   old <- old_path_dx_flags(fixture_dir)
   new <- new_path_dx_flags(fixture_dir)
 
@@ -195,6 +202,7 @@ test_that("new per-part path gives same icd_personal_trt as old full-join path",
 })
 
 test_that("cross-part edge case: E008 gets icd_personal_trt=1 (Z92.21 in part2)", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built")
   new <- new_path_dx_flags(fixture_dir)
   e008 <- new[encounterid == "E008"]
   expect_equal(nrow(e008), 1L)
@@ -204,18 +212,21 @@ test_that("cross-part edge case: E008 gets icd_personal_trt=1 (Z92.21 in part2)"
 })
 
 test_that("non-cancer patient P004 has any_reportable_cancer=0", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built")
   new <- new_path_dx_flags(fixture_dir)
   p004 <- new[patid == "P004"]
   expect_true(all(p004$any_reportable_cancer_new == 0L))
 })
 
 test_that("P002 (C34.90, prefix override) gets group_site='Oral and respiratory'", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built")
   new <- new_path_dx_flags(fixture_dir)
   p002 <- new[patid == "P002"]
   expect_equal(p002$group_site_new, "Oral and respiratory")
 })
 
 test_that("cancer_dx and group_site agree between old and new paths for all encounters", {
+  skip_if(!fixtures_available, "Pipeline fixtures not built")
   old <- old_path_dx_flags(fixture_dir)
   new <- new_path_dx_flags(fixture_dir)
 

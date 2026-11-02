@@ -49,13 +49,13 @@ test_that("MRG-02: logged_join helper emits row count messages before and after 
 
   # Verify that a join operation CAN be wrapped with message() logging
   # This validates the pattern; 02_merge.R must implement logged_join with this behavior
-  msgs <- capture.output({
+  msgs <- testthat::capture_messages({
     message("Left rows: ", nrow(encounters))
     message("Right rows: ", nrow(dx_combined))
     result <- left_join(encounters, dx_combined, by = c("patid", "encounterid"),
                         relationship = "one-to-many")
     message("Result rows: ", nrow(result))
-  }, type = "message")
+  })
 
   # Messages must contain row count numbers
   expect_true(any(grepl("Left rows:", msgs)))
