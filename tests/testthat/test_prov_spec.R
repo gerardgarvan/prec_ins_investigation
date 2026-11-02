@@ -69,6 +69,21 @@ test_that("whitespace variant matches after str_trim ('  207RX0202X  ' -> 1)", {
   expect_equal(result, 1L)
 })
 
+test_that("real nucc_taxonomy_210.xlsx: sheet 'nucc_taxonomy_210' exists with Code/Cancer_provider cols and 21 flagged rows", {
+  skip_if_not(
+    file.exists(here::here("reference", "nucc_taxonomy_210.xlsx")),
+    "nucc_taxonomy_210.xlsx not present in reference/"
+  )
+  library(readxl)
+  wb <- read_excel(here::here("reference", "nucc_taxonomy_210.xlsx"),
+                   sheet = "nucc_taxonomy_210", col_types = "text")
+  expect_true("Code" %in% names(wb), info = paste("cols:", paste(names(wb), collapse = ", ")))
+  expect_true("Cancer_provider" %in% names(wb))
+  n_flagged <- sum(trimws(wb$Cancer_provider) == "1", na.rm = TRUE)
+  expect_equal(n_flagged, 21L,
+               info = paste("found", n_flagged, "flagged rows; expected 21"))
+})
+
 test_that("all results in c(0L, 1L) with no NA for a mixed vector", {
   mixed_vec <- c("207RX0202X", "207R00000X", NA_character_, "UNKNOWN", "207rx0202x", "  207RX0202X  ", "207RC0000X")
   result <- assign_cancer_provider(mixed_vec, mock_prov_spec)

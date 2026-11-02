@@ -180,6 +180,24 @@ legacy summary rows). Notable items:
   SAS references: `SAS_CODE_FOR_v5_1.sas:L45–50` (PROC IMPORT), `SAS_CODE_FOR_V5_2.sas:L11–19` (JOIN).
   TODO(ERIN): verify the 21 flagged NUCC codes against current NUCC taxonomy (see Provider Specialty Cancer Flags section below).
 
+### ICD Lookup — Workbook Version Uncertainty — TODO(ERIN)
+
+The `/orange` copy and the repo copy of `CancerSiteCategories.xlsx` are byte-identical
+(219,786 bytes), but the `/orange` copy's mtime is today (2026-11-02), which does not
+confirm it is the SAS-era file. The actual row counts in the repo copy differ from the
+SAS-era ranges cited in the code:
+
+| Sheet | SAS-era range cited | Actual rows in repo copy |
+|-------|---------------------|--------------------------|
+| ForSAS_ICD10 | A1:D1018 (→ 1,017 data rows) | ~1,130 rows |
+| ForSAS_ICD9toICD10 | D1:E2917 (→ 2,916 pairs) | ~967 pairs |
+
+TODO(ERIN): Confirm whether the xlsx in `/orange` is the file that was live when the SAS
+pipeline last ran. The gap codes (C19, C20, C23, C65, C66, C50.0, C7A.00) that are missing
+from the current workbook may be explained by the workbook having been updated after the SAS
+run, or the SAS-era file may have been a different version entirely. Run
+`md5sum /orange/erin.mobley-precision/CancerSiteCategories.xlsx` and compare to the repo copy.
+
 ### ICD Lookup Gaps — TODO(ERIN)
 
 The following ICD codes are present in PCORnet dx records but **not found** in `ForSAS_ICD10`

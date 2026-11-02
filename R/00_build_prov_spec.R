@@ -6,9 +6,10 @@
 #   Columns: provider_specialty_primary (character), cancer_provider (integer 0/1)
 #
 # Notes:
-#   - Sheet "sas", A1:D866 => 865 data rows, 4 columns
-#   - Column A = PROVIDER_SPECIALTY_PRIMARY (NUCC taxonomy code, e.g. "207RX0202X")
-#   - Column D = Cancer_provider ("1" or "0" as text)
+#   - Sheet "nucc_taxonomy_210" (single sheet; SAS code cited "sas" which was a prior version)
+#   - Columns: Code, Grouping, Classification, Specialization, Cancer_provider
+#   - Column "Code" = PROVIDER_SPECIALTY_PRIMARY (NUCC taxonomy code, e.g. "207RX0202X")
+#   - Column "Cancer_provider" = "1" or "0" as text
 #   - 21 codes are flagged as Cancer_provider = "1"
 #   - Missing join in 02_merge.R -> cancer_provider stays NA -> filled to 0 downstream
 
@@ -27,25 +28,26 @@ if (!file.exists(xlsx_path)) {
   )
 }
 
-# Read all 4 columns as text to avoid numeric coercion of codes
-# SAS range: "sas$A1:D866" -- 865 data rows
+# Read all columns as text to avoid numeric coercion of codes.
+# Sheet "nucc_taxonomy_210" contains columns: Code, Grouping, Classification,
+# Specialization, Cancer_provider. Read by name, not position.
 prov_raw <- read_excel(
-  xlsx_path, sheet = "sas",
-  range = "A1:D866", col_types = "text"
+  xlsx_path, sheet = "nucc_taxonomy_210",
+  col_types = "text"
 )
 
-# Column A = specialty code; Column D = Cancer_provider flag
-# Normalize column names: use positions to be robust to Excel header casing
 col_names_raw <- names(prov_raw)
 message("nucc_taxonomy_210.xlsx columns (raw): ", paste(col_names_raw, collapse = ", "))
 
-# Column A is provider_specialty_primary (Code), Column D is Cancer_provider
+if (!all(c("Code", "Cancer_provider") %in% col_names_raw)) {
+  stop(
+    "nucc_taxonomy_210.xlsx: expected columns 'Code' and 'Cancer_provider' in sheet 'nucc_taxonomy_210'.\n",
+    "Found: ", paste(col_names_raw, collapse = ", ")
+  )
+}
+
 prov_spec <- prov_raw %>%
-  rename(
-    provider_specialty_primary = 1,
-    cancer_provider_raw        = 4
-  ) %>%
-  select(provider_specialty_primary, cancer_provider_raw) %>%
+  select(provider_specialty_primary = Code, cancer_provider_raw = Cancer_provider) %>%
   filter(!is.na(provider_specialty_primary), str_trim(provider_specialty_primary) != "") %>%
   mutate(
     # Normalize join key: upper + trim to match provider table values
@@ -62,7 +64,7 @@ if (n_flagged != 21L) {
   warning(
     "DATA INTEGRITY: expected 21 flagged cancer specialty codes, found ", n_flagged, ".\n",
     "The nucc_taxonomy_210.xlsx file may differ from the version used in SAS.\n",
-    "Verify against SAS_CODE_FOR_v5_1.sas and nucc_taxonomy_210.xlsx sheet 'sas' column D."
+    "Verify against SAS_CODE_FOR_v5_1.sas and nucc_taxonomy_210.xlsx sheet 'nucc_taxonomy_210' column Cancer_provider."
   )
 }
 

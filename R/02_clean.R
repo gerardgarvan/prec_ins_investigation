@@ -109,43 +109,44 @@ if (!file.exists(icd_path)) {
 icd_groups <- as.data.table(readRDS(icd_path))
 message("icd_groups: ", nrow(icd_groups), " rows | cols: ", paste(names(icd_groups), collapse = ", "))
 
-# ICD personal-treatment-history codes (V5_8 line 81)
-ICD_PERSONAL_TRT_CODES <- c("V87.41", "V87.42", "V87.43", "V87.46", "V15.3",
-                             "Z92.21", "Z92.22", "Z92.23", "Z92.25", "Z92.3")
+# ICD personal-treatment-history codes (V5_8 line 81) — stored normalized (no dots, uppercase)
+# so they match the dx_norm column computed below.
+ICD_PERSONAL_TRT_CODES <- c("V8741", "V8742", "V8743", "V8746", "V153",
+                             "Z9221", "Z9222", "Z9223", "Z9225", "Z923")
 
 # Helper: apply V5_3 prefix/exact overrides to a data.table that already has
 # a group_site column (populated by the icd_groups join, possibly NA).
-# SAS =: is a starts-with operator; R equivalent: startsWith(dx, prefix).
+# Operates on dx_norm (no dots, uppercase, trimmed) — same normalization as the lookup.
+# SAS =: is a starts-with operator; R equivalent: startsWith(dx_norm, prefix).
 apply_icd_overrides <- function(dt) {
   # V5_3 lines 54-58: In situ (ICD-9 prefix)
-  dt[startsWith(dx, "230") | startsWith(dx, "231") | startsWith(dx, "232") |
-     startsWith(dx, "233") | startsWith(dx, "234") | startsWith(dx, "D0"),
+  dt[startsWith(dx_norm, "230") | startsWith(dx_norm, "231") | startsWith(dx_norm, "232") |
+     startsWith(dx_norm, "233") | startsWith(dx_norm, "234") | startsWith(dx_norm, "D0"),
      group_site := "In situ"]
   # V5_3 lines 60-65: Hematologic (Non-Hodgkin Lymphoma)
-  dt[startsWith(dx, "C82") | startsWith(dx, "C83") |
-     dx %in% c("C84.1","C84.4","C84.6","C84.7","C84.9","C84.A","C84.Z",
-                "C841","C844","C846","C847","C849","C84A","C84Z") |
-     startsWith(dx, "C85"),
+  dt[startsWith(dx_norm, "C82") | startsWith(dx_norm, "C83") |
+     dx_norm %in% c("C841","C844","C846","C847","C849","C84A","C84Z") |
+     startsWith(dx_norm, "C85"),
      group_site := "Hematologic"]
   # V5_3 lines 66-73: Reportable but not mapped
-  dt[startsWith(dx, "235") | startsWith(dx, "236") | startsWith(dx, "237") |
-     startsWith(dx, "239") | startsWith(dx, "D37") | startsWith(dx, "D38") |
-     startsWith(dx, "D39") | startsWith(dx, "D40") | startsWith(dx, "D41") |
-     startsWith(dx, "D42") | startsWith(dx, "D43") | startsWith(dx, "D44") |
-     startsWith(dx, "D45") | startsWith(dx, "D48") | startsWith(dx, "D49"),
+  dt[startsWith(dx_norm, "235") | startsWith(dx_norm, "236") | startsWith(dx_norm, "237") |
+     startsWith(dx_norm, "239") | startsWith(dx_norm, "D37") | startsWith(dx_norm, "D38") |
+     startsWith(dx_norm, "D39") | startsWith(dx_norm, "D40") | startsWith(dx_norm, "D41") |
+     startsWith(dx_norm, "D42") | startsWith(dx_norm, "D43") | startsWith(dx_norm, "D44") |
+     startsWith(dx_norm, "D45") | startsWith(dx_norm, "D48") | startsWith(dx_norm, "D49"),
      group_site := "Reportable but not mapped above"]
-  # V5_3 lines 74-79: exact overrides
-  dt[dx == "200.33",  group_site := "Hematologic"]
-  dt[startsWith(dx, "C34"), group_site := "Oral and respiratory"]
-  dt[startsWith(dx, "C25"), group_site := "Digestive"]
-  dt[startsWith(dx, "C44") | startsWith(dx, "C4A") | startsWith(dx, "C43"),
+  # V5_3 lines 74-79: exact overrides (normalized: dots stripped)
+  dt[dx_norm == "20033",  group_site := "Hematologic"]
+  dt[startsWith(dx_norm, "C34"), group_site := "Oral and respiratory"]
+  dt[startsWith(dx_norm, "C25"), group_site := "Digestive"]
+  dt[startsWith(dx_norm, "C44") | startsWith(dx_norm, "C4A") | startsWith(dx_norm, "C43"),
      group_site := "Skin"]
-  dt[dx == "C7A00",   group_site := "Other"]
-  dt[dx == "53",      group_site := "Female Genital system"]
-  dt[dx == "C84.07",  group_site := "Hematologic"]
-  dt[dx == "C56.3",   group_site := "Female Genital System"]
-  dt[dx == "C7A029",  group_site := "Digestive"]
-  dt[dx == "C81.47",  group_site := "Hematologic"]
+  dt[dx_norm == "C7A00",   group_site := "Other"]
+  dt[dx_norm == "53",      group_site := "Female Genital system"]
+  dt[dx_norm == "C8407",   group_site := "Hematologic"]
+  dt[dx_norm == "C563",    group_site := "Female Genital System"]
+  dt[dx_norm == "C7A029",  group_site := "Digestive"]
+  dt[dx_norm == "C8147",   group_site := "Hematologic"]
   dt
 }
 
@@ -163,23 +164,22 @@ for (i in seq_along(dx_part_files)) {
   message("    rows: ", format(nrow(part), big.mark = ","),
           " | in memory: ", format(object.size(part), units = "MB", standard = "legacy"))
 
-  # Step 1: Two-pass join (SAS matching rule):
-  # Pass 1: exact join covers full ICD-9 codes ("174.9") and any exact ICD-10 matches.
-  # Pass 2: 5-char substr join covers 5-7 char ICD-10 dx codes ("C50.911" -> "C50.9").
-  # ForSAS_ICD10 keys are 5 chars max with dot (e.g. "C50.9", "C81.1").
-  # SAS exact join (V5_3 line 49): left join dx.Icd10_groups2 on a.dx = b.ICD9_10
-  # "icd9_10" is the clean_names() result for SAS column ICD9_10
+  # Step 1: Normalize dx — strip dots, trim, uppercase — to match the normalized lookup keys.
+  # SAS exact join (V5_3 line 49): left join dx.Icd10_groups2 on a.dx = b.ICD9_10.
+  # Then longest-prefix fallback (7 down to 3 chars) to match codes like "C50.919"
+  # that appear in the data but only have a 5-char prefix ("C5091") in the lookup.
+  part[, dx_norm := toupper(gsub("\\.", "", trimws(dx)))]
+
   part <- merge(part, icd_groups[, .(icd9_10, group_site)],
-                by.x = "dx", by.y = "icd9_10", all.x = TRUE)
+                by.x = "dx_norm", by.y = "icd9_10", all.x = TRUE)
   n_exact <- sum(!is.na(part$group_site))
 
-  unmatched <- is.na(part$group_site)
-  if (any(unmatched)) {
-    part[, dx5 := substr(dx, 1L, 5L)]
-    gs_prefix <- icd_groups[part[unmatched, .(dx5)],
-                             on = .(icd9_10 = dx5), .(group_site)]$group_site
-    part[unmatched, group_site := gs_prefix]
-    part[, dx5 := NULL]
+  for (len in 7:3) {
+    unmatched_idx <- which(is.na(part$group_site))
+    if (length(unmatched_idx) == 0L) break
+    pfx <- substr(part$dx_norm[unmatched_idx], 1L, len)
+    gs  <- icd_groups$group_site[match(pfx, icd_groups$icd9_10)]
+    part[unmatched_idx, group_site := gs]
   }
   message("    ICD join -- exact: ", n_exact,
           " | prefix-fill: ", sum(!is.na(part$group_site)) - n_exact,
@@ -191,7 +191,7 @@ for (i in seq_along(dx_part_files)) {
   # Step 3: row-level flags
   # V5_3 line 128: any_reportable_cancer = 1 if group_site is non-empty after join+overrides
   part[, any_reportable_cancer := fifelse(!is.na(group_site) & nchar(group_site) > 0L, 1L, 0L)]
-  part[, icd_personal_trt      := fifelse(dx %in% ICD_PERSONAL_TRT_CODES, 1L, 0L)]
+  part[, icd_personal_trt      := fifelse(dx_norm %in% ICD_PERSONAL_TRT_CODES, 1L, 0L)]
 
   # Step 4: pick representative cancer row per encounter
   # Rule: earliest cancer dx by (dx_date asc, dx asc) — mirrors SAS V5_4 sort
