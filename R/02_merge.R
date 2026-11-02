@@ -128,8 +128,6 @@ message("  any_reportable_cancer=1 in merged: ",
 # KEEP_ENC also includes SOURCE, so encounters already have a `source` column.
 # Rename provider's SOURCE to provider_source before the join to prevent a
 # conflicting column pair (source.x / source.y) in the merged dataset.
-# NOTE: cancer_provider is NOT in this table — it requires joining prov_spec
-# (nucc_taxonomy_210.xlsx). See DATA_LINEAGE.md "Blocking: cancer_provider".
 provider_full <- provider %>%
   rename(provider_source = source)
 
@@ -148,6 +146,62 @@ enc_dx_prov <- logged_join(
   relationship = "many-to-one",
   desc = "Enc+Dx + Provider (MRG-01)"
 )
+
+# ========================================
+# Section 7b -- Merge 4: Provider Specialty -> cancer_provider flag
+# ========================================
+#
+# SAS source: SAS_CODE_FOR_v5_1.sas lines 45-50 (PROC IMPORT nucc_taxonomy_210.xlsx)
+#             SAS_CODE_FOR_V5_2.sas lines 11-19 (LEFT JOIN on PROVIDER_SPECIALTY_PRIMARY)
+#
+# cancer_provider = 1 if the provider's NUCC taxonomy code is an oncology specialty.
+# Missing join (provider code not in prov_spec) -> cancer_provider stays NA -> filled 0.
+# 21 NUCC codes are flagged as cancer_provider = 1 (see 00_build_prov_spec.R output).
+
+prov_spec_path <- file.path(data_dir_processed, "01_imported_prov_spec.rds")
+if (!file.exists(prov_spec_path)) {
+  stop(
+    "01_imported_prov_spec.rds not found at: ", prov_spec_path, "\n",
+    "Run 01_import.R first (which sources 00_build_prov_spec.R)."
+  )
+}
+prov_spec <- readRDS(prov_spec_path)
+message("prov_spec: ", nrow(prov_spec), " rows | flagged: ",
+        sum(prov_spec$cancer_provider == 1L), " cancer specialty codes")
+
+# Normalize the join key in enc_dx_prov to upper + trimmed to match prov_spec
+enc_dx_prov <- enc_dx_prov %>%
+  mutate(
+    provider_specialty_primary_key = stringr::str_trim(toupper(provider_specialty_primary))
+  ) %>%
+  left_join(
+    prov_spec %>% rename(provider_specialty_primary_key = provider_specialty_primary),
+    by = "provider_specialty_primary_key",
+    relationship = "many-to-one"
+  ) %>%
+  mutate(
+    cancer_provider = tidyr::replace_na(cancer_provider, 0L)
+  ) %>%
+  select(-provider_specialty_primary_key)
+
+message("  cancer_provider=1 encounters: ",
+        format(sum(enc_dx_prov$cancer_provider == 1L, na.rm = TRUE), big.mark = ","))
+
+unmatched_specs <- setdiff(
+  stringr::str_trim(toupper(enc_dx_prov$provider_specialty_primary[!is.na(enc_dx_prov$provider_specialty_primary)])),
+  prov_spec$provider_specialty_primary
+)
+if (length(unmatched_specs) > 0L) {
+  message("  Specialty codes in provider table NOT in prov_spec (filled cancer_provider=0): ",
+          length(unmatched_specs))
+  if (length(unmatched_specs) <= 20L) {
+    message("    ", paste(unmatched_specs, collapse = ", "))
+  }
+}
+
+stopifnot(all(enc_dx_prov$cancer_provider %in% c(0L, 1L)))
+stopifnot(!any(is.na(enc_dx_prov$cancer_provider)))
+message("PASS: cancer_provider is 0/1 integer with no NA in all ", nrow(enc_dx_prov), " rows")
 
 saveRDS(enc_dx_prov, file.path(data_dir_processed, "02_merged_complete.rds"))
 message("Saved: 02_merged_complete.rds")

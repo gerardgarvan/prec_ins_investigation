@@ -14,6 +14,9 @@ data_dir_raw <- "/orange/erin.mobley-precision/Data_v5"
 # Where .rds checkpoints go
 data_dir_processed <- "/blue/erin.mobley-precision/ggarvan/data/processed"
 
+# Reference workbooks (committed to repo -- analytical lookup files, not patient data)
+reference_dir <- here::here("reference")
+
 # Output directory paths
 output_dir <- "/blue/erin.mobley-precision/ggarvan/output"
 output_dir_tables <- "/blue/erin.mobley-precision/ggarvan/output/tables"
@@ -29,6 +32,7 @@ dir.create(data_dir_processed, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_tables, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_figures, recursive = TRUE, showWarnings = FALSE)
 dir.create(output_dir_diagnostics, recursive = TRUE, showWarnings = FALSE)
+dir.create(reference_dir, recursive = TRUE, showWarnings = FALSE)
 
 # PIPELINE_TEST switch: set env var PIPELINE_TEST=TRUE to point all dirs at
 # local test fixtures under tests/testdata/ (no HiPerGator connection required).
@@ -40,11 +44,13 @@ if (isTRUE(as.logical(Sys.getenv("PIPELINE_TEST", "FALSE")))) {
   output_dir_tables      <- file.path(output_dir, "tables")
   output_dir_figures     <- file.path(output_dir, "figures")
   output_dir_diagnostics <- file.path(output_dir, "diagnostics")
+  reference_dir <- here::here("reference")  # same value -- reference/ is repo-local always
   message("PIPELINE_TEST=TRUE — using local test fixtures under tests/testdata/")
   dir.create(data_dir_processed,      recursive = TRUE, showWarnings = FALSE)
   dir.create(output_dir_tables,       recursive = TRUE, showWarnings = FALSE)
   dir.create(output_dir_figures,      recursive = TRUE, showWarnings = FALSE)
   dir.create(output_dir_diagnostics,  recursive = TRUE, showWarnings = FALSE)
+  dir.create(reference_dir,           recursive = TRUE, showWarnings = FALSE)
 }
 
 # NOTE: SAS library alias confusion (per D-10, Research pitfall 4):

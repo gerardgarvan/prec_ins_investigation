@@ -89,21 +89,29 @@ message("Follow-up encounters: ", format(nrow(followup_encounters), big.mark = "
 message("\n=== Section 4: Encounter-Level Visit Type Flags ===")
 
 # cancer_provider is required for OUT-03 and OUT-04.
-# It is NOT present in 02_merged_complete.rds because the provider table on
-# HiPerGator has no cancer_provider column — the flag exists only in prov_spec,
-# derived from nucc_taxonomy_210.xlsx (sheet "sas", A1:D866) joined on
-# PROVIDER_SPECIALTY_PRIMARY.  That join was never translated to R.
-# See DATA_LINEAGE.md — "Blocking: cancer_provider".
-# TODO(ERIN): obtain nucc_taxonomy_210.xlsx, import prov_spec in 01_import.R,
-#   join in 02_merge.R on PROVIDER_SPECIALTY_PRIMARY, and re-run this script.
-if (!"cancer_provider" %in% names(followup_encounters)) {
+# It is now populated in 02_merged_complete.rds via the prov_spec join in 02_merge.R
+# (Section 7b), which reads 01_imported_prov_spec.rds built from nucc_taxonomy_210.xlsx.
+# SAS source: SAS_CODE_FOR_v5_1.sas lines 45-50 + SAS_CODE_FOR_V5_2.sas lines 11-19.
+# See DATA_LINEAGE.md — "Blocking: cancer_provider" (now RESOLVED 2026-11-02).
+tryCatch({
+  followup_encounters %>%
+    assertr::verify(
+      cancer_provider %in% c(0L, 1L),
+      description = "cancer_provider must be 0 or 1 (integer)"
+    ) %>%
+    assertr::verify(
+      !is.na(cancer_provider),
+      description = "cancer_provider must have no NA"
+    )
+  message("PASS: cancer_provider is 0/1 integer with no NA (",
+          sum(followup_encounters$cancer_provider == 1L, na.rm = TRUE), " flagged encounters)")
+}, error = function(e) {
   stop(
-    "cancer_provider column is missing from followup_encounters.\n",
-    "Outcomes 3 (Cancer_visit_and_prov) and 4 (Survivorship_visit) are blocked.\n",
-    "Fix: add prov_spec join in 02_merge.R using nucc_taxonomy_210.xlsx.\n",
-    "See DATA_LINEAGE.md section 'Blocking: cancer_provider' for details."
+    "cancer_provider assertion failed in followup_encounters.\n",
+    "Expected 0/1 integer with no NA — check 02_merge.R Section 7b (prov_spec join).\n",
+    "Original error: ", conditionMessage(e)
   )
-}
+})
 
 followup_encounters <- followup_encounters %>%
   mutate(

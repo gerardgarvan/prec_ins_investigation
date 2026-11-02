@@ -156,11 +156,27 @@ for (i in seq_along(dx_part_files)) {
   message("    rows: ", format(nrow(part), big.mark = ","),
           " | in memory: ", format(object.size(part), units = "MB", standard = "legacy"))
 
-  # Step 1: exact join to icd_groups on dx = icd9_10 (V5_3 line 49)
-  # "icd9_10" is the assumed clean_names() result for SAS column ICD9_10
-  # Must verify: names(readRDS(".../01_imported_icd_groups.rds"))
+  # Step 1: Two-pass join (SAS matching rule):
+  # Pass 1: exact join covers full ICD-9 codes ("174.9") and any exact ICD-10 matches.
+  # Pass 2: 5-char substr join covers 5-7 char ICD-10 dx codes ("C50.911" -> "C50.9").
+  # ForSAS_ICD10 keys are 5 chars max with dot (e.g. "C50.9", "C81.1").
+  # SAS exact join (V5_3 line 49): left join dx.Icd10_groups2 on a.dx = b.ICD9_10
+  # "icd9_10" is the clean_names() result for SAS column ICD9_10
   part <- merge(part, icd_groups[, .(icd9_10, group_site)],
                 by.x = "dx", by.y = "icd9_10", all.x = TRUE)
+  n_exact <- sum(!is.na(part$group_site))
+
+  unmatched <- is.na(part$group_site)
+  if (any(unmatched)) {
+    part[, dx5 := substr(dx, 1L, 5L)]
+    gs_prefix <- icd_groups[part[unmatched, .(dx5)],
+                             on = .(icd9_10 = dx5), .(group_site)]$group_site
+    part[unmatched, group_site := gs_prefix]
+    part[, dx5 := NULL]
+  }
+  message("    ICD join -- exact: ", n_exact,
+          " | prefix-fill: ", sum(!is.na(part$group_site)) - n_exact,
+          " | unmatched: ", sum(is.na(part$group_site)))
 
   # Step 2: apply prefix/exact overrides (V5_3 lines 54-131)
   apply_icd_overrides(part)
