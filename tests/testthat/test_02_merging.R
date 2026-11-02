@@ -4,7 +4,6 @@
 
 library(testthat)
 library(dplyr)
-source("/home/ggarvan/prec_ins_investigation/tests/testthat/helper-fixtures.R")
 
 # ==============================================================================
 # MRG-01: Encounter-diagnosis join by patid + encounterid

@@ -4,6 +4,7 @@
 
 library(testthat)
 library(dplyr)
+library(tidyr)
 
 # ==============================================================================
 # EXP-01: Insurance change variable calculation

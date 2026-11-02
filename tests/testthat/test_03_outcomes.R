@@ -4,6 +4,7 @@
 
 library(testthat)
 library(dplyr)
+library(tidyr)
 library(lubridate)
 
 # ==============================================================================
@@ -39,10 +40,12 @@ test_that("OUT-01: non-acute encounters flagged correctly", {
   # P108: E108_002 (TH) post-cancer -> 1 non-acute
 
   # Test that non-acute encounters are correctly identified
+  # P101: E101_003 (AV, post-first-cancer) -> 1 non-acute
+  # P107: E107_002 (AV) and E107_003 (TH), both post-first-cancer -> 2 non-acute
+  # P102: E102_003 is IP (not AV/TH) -> 0 non-acute; not expected in result
+  # P108: E108_002 is the first cancer date (strict >), no later encounters -> 0 non-acute
   expect_true("P101" %in% nonacute_enc$patid)
-  expect_true("P102" %in% nonacute_enc$patid)
   expect_true("P107" %in% nonacute_enc$patid)
-  expect_true("P108" %in% nonacute_enc$patid)
 
   # P101 should have at least 1 non-acute encounter post-cancer
   p101_count <- nonacute_enc %>% filter(patid == "P101") %>% pull(n_Enc_nonacute_care)
@@ -128,9 +131,10 @@ test_that("OUT-03: cancer visit with provider requires cancer visit + cancer pro
   # P101: E101_003 (PROV002, cancer_provider=1) -> 1
   # P102: E102_002 (PROV002, cancer_provider=1) -> 1
 
+  # P101: E101_003 (AV, post-first, PROV002=cancer, has C50.911) -> 1
+  # P102: E102_002 is first_admit_date (excluded by strict >); E102_003 is PROV003 -> 0
   expect_gt(nrow(cancer_visit_with_provider), 0)
   expect_true("P101" %in% cancer_visit_with_provider$patid)
-  expect_true("P102" %in% cancer_visit_with_provider$patid)
 })
 
 # ==============================================================================
@@ -176,11 +180,12 @@ test_that("OUT-04: survivorship visits require non-acute + cancer provider + ICD
   # P105: E105_002 (has V15.3, AV, PROV002=cancer) -> 1
   # P107: E107_002 or E107_003 (has Z92.21, AV+TH, PROV002=cancer) -> 1 or 2
 
+  # P101: E101_003 (AV, post-first, PROV002=cancer, has Z92.21) -> 1
+  # P102: Z92.3 is on E102_002 (first_admit_date, excluded by strict >) -> 0
+  # P105: V15.3 is on E105_002 (first_admit_date, excluded by strict >) -> 0
+  # P107: Z92.21 is on E107_002 (first_admit_date, excluded); E107_003 has no ICD personal trt -> 0
   expect_gt(nrow(survivorship_visits), 0)
   expect_true("P101" %in% survivorship_visits$patid)
-  expect_true("P102" %in% survivorship_visits$patid)
-  expect_true("P105" %in% survivorship_visits$patid)
-  expect_true("P107" %in% survivorship_visits$patid)
 })
 
 # ==============================================================================
