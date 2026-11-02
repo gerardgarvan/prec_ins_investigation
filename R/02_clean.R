@@ -48,9 +48,22 @@ source(here::here("R", "utils_import.R"))
 # Read and combine them here — no raw SAS import needed in Phase 2.
 enc_part_files <- sort(list.files(data_dir_processed, pattern = "01_imported_enc_part\\d+\\.rds",
                                    full.names = TRUE))
-encounters <- purrr::map(enc_part_files, readRDS) |> dplyr::bind_rows()
+# Select only columns needed for cleaning and downstream merges immediately after
+# binding to avoid holding 30+ PCORnet columns in RAM for tens of millions of rows.
+enc_cols_needed <- c(
+  "patid", "encounterid", "providerid",
+  "enc_type", "admit_date", "discharge_date",
+  "discharge_status", "discharge_disposition",
+  "payer_type_primary", "payer_type_secondary"
+)
+encounters <- purrr::map(enc_part_files, function(f) {
+  part <- readRDS(f)
+  # Keep only columns that exist in this part (guard against schema variation)
+  dplyr::select(part, dplyr::any_of(enc_cols_needed))
+}) |> dplyr::bind_rows()
 rm(enc_part_files); gc(verbose = FALSE)
-message("Encounter rows: ", format(nrow(encounters), big.mark = ","))
+message("Encounter rows: ", format(nrow(encounters), big.mark = ","),
+        " | cols: ", ncol(encounters))
 
 # NOTE: janitor::clean_names() already applied in import_sas() -- do NOT reapply
 # Phase 1 pattern: column names are already lowercase snake_case
