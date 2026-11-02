@@ -51,7 +51,7 @@ crosswalk <- crosswalk_raw %>%
 message("crosswalk: ", nrow(crosswalk), " ICD-9->ICD-10 pairs after cleanup")
 
 # ---- Step 2: ForSAS_ICD10 (4-col: icd10 | primary_site | detailed_site | Group_Site) ----
-# Actual workbook has 1,130 data rows (SAS-era range A1:D1018 truncated at 1017 rows).
+# SAS-era range A1:D1018 cited in old comments; actual workbook has 966 data rows.
 icd10_raw <- read_excel(
   xlsx_path, sheet = "ForSAS_ICD10",
   range = "A1:D1200", col_types = "text"
@@ -94,38 +94,30 @@ icd10_groups2 <- bind_rows(icd10_groups2_icd9, icd10_direct) %>%
   distinct(icd9_10, .keep_all = TRUE)
 message("icd10_groups2 (final lookup, normalized): ", nrow(icd10_groups2), " rows")
 
-# ---- Step 7: bare ICD-9 codes absent from crosswalk ----
-# 3-digit ICD-9 codes like "185" (prostate) and "193" (thyroid) appear frequently
-# in dx data but the crosswalk only maps more specific sub-codes (e.g. "185.9").
-# Derive group_site from the corresponding ICD-10 equivalent already in the lookup.
-# TODO(ERIN): if the SAS-era crosswalk had "185" as a key, this block is redundant;
-# confirm via proc contents data=Icd10_groups2; run; on HiPerGator.
-bare_icd9_map <- tibble::tibble(
-  icd9_10  = norm_icd(c("185", "193")),
-  icd10_eq = norm_icd(c("C61", "C73"))
-)
-bare_icd9_extra <- bare_icd9_map %>%
-  left_join(icd10_groups2 %>% select(icd10_eq = icd9_10, group_site),
-            by = "icd10_eq") %>%
-  filter(!is.na(group_site)) %>%
-  select(icd9_10, group_site)
-if (nrow(bare_icd9_extra) > 0L) {
-  icd10_groups2 <- bind_rows(
-    icd10_groups2 %>% filter(!icd9_10 %in% bare_icd9_extra$icd9_10),
-    bare_icd9_extra
-  ) %>% arrange(icd9_10)
-  message("Added ", nrow(bare_icd9_extra), " bare ICD-9 keys (185, 193)")
-}
-
-# ---- Step 8: gap handling (TODO(ERIN)) ----
-# DATA_LINEAGE gap codes: C19, C20 (rectum); C23 (gallbladder); C65 (renal pelvis);
-# C66 (ureter); C50.0 (central breast); C7A.00 (neuroendocrine unspec).
+# ---- Step 7: gap handling (TODO(ERIN)) ----
+# SAS-faithful (FALSE): 185/193/179/181 are absent from BOTH crosswalk columns, so
+# SAS's lookup wouldn't have resolved them either — leave as NA.
+# fix_lookup_gaps=TRUE: add those bare ICD-9 codes plus the ICD-10 gaps.
+#
+# Bare ICD-9 gaps (absent from crosswalk cols A and D):
+#   185 (prostate)         -> Male Genital System   [TODO(ERIN)]
+#   193 (thyroid)          -> Endocrine              [TODO(ERIN)]
+#   179 (uterus NOS)       -> Female Genital System  [TODO(ERIN)]
+#   181 (placenta)         -> Female Genital System  [TODO(ERIN)]
+#
+# ICD-10 gaps missing from ForSAS_ICD10: C19, C20, C23, C65, C66, C50.0, C7A.00
 # Typo: "Unrinary System" in some Group_Site labels should be "Urinary System".
 if (fix_lookup_gaps) {
   message("fix_lookup_gaps=TRUE: adding known missing codes + fixing typos")
   gap_rows <- tibble::tibble(
-    icd9_10    = norm_icd(c("C19", "C20", "C23", "C65", "C66", "C50.0", "C7A.00")),
-    group_site = c("Digestive","Digestive","Digestive","Urinary System","Urinary System","Breast","Other")
+    icd9_10    = norm_icd(c(
+      "185", "193", "179", "181",
+      "C19", "C20", "C23", "C65", "C66", "C50.0", "C7A.00"
+    )),
+    group_site = c(
+      "Male Genital System", "Endocrine", "Female Genital System", "Female Genital System",
+      "Digestive", "Digestive", "Digestive", "Urinary System", "Urinary System", "Breast", "Other"
+    )
   )
   icd10_groups2 <- bind_rows(
     icd10_groups2 %>% filter(!icd9_10 %in% gap_rows$icd9_10),
@@ -136,7 +128,8 @@ if (fix_lookup_gaps) {
   message("  After gap patch: ", nrow(icd10_groups2), " rows")
 } else {
   message("fix_lookup_gaps=FALSE (default, SAS-faithful).")
-  message("  TODO(ERIN): known gaps not in ForSAS_ICD10: C19, C20, C23, C65, C66, C50.0, C7A.00")
+  message("  TODO(ERIN): bare ICD-9 gaps absent from crosswalk: 185, 193, 179, 181")
+  message("  TODO(ERIN): ICD-10 gaps not in ForSAS_ICD10: C19, C20, C23, C65, C66, C50.0, C7A.00")
   message("  TODO(ERIN): typo 'Unrinary System' present in some Group_Site labels")
   message("  Set options(prec_ins.fix_lookup_gaps=TRUE) before sourcing to patch.")
 }

@@ -86,27 +86,12 @@ lookup_built <- local({
       rename(icd9_10 = icd10_code) %>%
       select(icd9_10, group_site)
 
-    combined <- bind_rows(cw_joined, icd10_direct) %>%
+    # SAS-faithful (fix_lookup_gaps=FALSE): 185/193/179/181 absent from crosswalk,
+    # so they are NOT added here.
+    bind_rows(cw_joined, icd10_direct) %>%
       mutate(icd9_10 = norm_icd(icd9_10)) %>%
       arrange(icd9_10) %>%
       distinct(icd9_10, .keep_all = TRUE)
-
-    # Bare ICD-9 codes not in crosswalk (mirrors 00_build_icd_groups.R Step 7)
-    bare_map <- tibble::tibble(
-      icd9_10  = norm_icd(c("185", "193")),
-      icd10_eq = norm_icd(c("C61", "C73"))
-    )
-    bare_extra <- bare_map %>%
-      left_join(combined %>% select(icd10_eq = icd9_10, group_site), by = "icd10_eq") %>%
-      filter(!is.na(group_site)) %>%
-      select(icd9_10, group_site)
-    if (nrow(bare_extra) > 0L) {
-      combined <- bind_rows(
-        combined %>% filter(!icd9_10 %in% bare_extra$icd9_10),
-        bare_extra
-      ) %>% arrange(icd9_10)
-    }
-    combined
   }, error = function(e) NULL)
 })
 
@@ -129,9 +114,10 @@ test_that("no keys contain dots (all normalized)", {
   expect_false(any(grepl("\\.", lookup_built$icd9_10)))
 })
 
-test_that("185 (ICD-9 prostate, no dot) -> Male Genital System", {
+test_that("185 (ICD-9 prostate, no dot) -> NA when fix_lookup_gaps=FALSE (SAS-faithful)", {
   skip_if_no_xlsx()
-  expect_equal(lookup_site("185", lookup_built), "Male Genital System")
+  # 185 is absent from BOTH crosswalk columns — SAS wouldn't have resolved it either.
+  expect_true(is.na(lookup_site("185", lookup_built)))
 })
 
 test_that("C61 (ICD-10 prostate) -> Male Genital System", {
@@ -174,8 +160,47 @@ test_that("162.9 (ICD-9 lung) -> Oral and respiratory", {
   expect_equal(lookup_site("162.9", lookup_built), "Oral and respiratory")
 })
 
-test_that("193 (ICD-9 thyroid, no dot) returns a non-NA site", {
+test_that("193 (ICD-9 thyroid, no dot) -> NA when fix_lookup_gaps=FALSE (SAS-faithful)", {
   skip_if_no_xlsx()
-  result <- lookup_site("193", lookup_built)
-  expect_false(is.na(result), info = paste("193 returned NA — .0 restore rule may still be active"))
+  # 193 is absent from BOTH crosswalk columns — SAS wouldn't have resolved it either.
+  expect_true(is.na(lookup_site("193", lookup_built)))
+})
+
+# ---- fix_lookup_gaps=TRUE tests (build a patched lookup inline) ----
+lookup_patched <- local({
+  if (is.null(lookup_built)) return(NULL)
+  gap_rows <- tibble::tibble(
+    icd9_10    = norm_icd(c(
+      "185", "193", "179", "181",
+      "C19", "C20", "C23", "C65", "C66", "C50.0", "C7A.00"
+    )),
+    group_site = c(
+      "Male Genital System", "Endocrine", "Female Genital System", "Female Genital System",
+      "Digestive", "Digestive", "Digestive", "Urinary System", "Urinary System", "Breast", "Other"
+    )
+  )
+  bind_rows(
+    lookup_built %>% dplyr::filter(!icd9_10 %in% gap_rows$icd9_10),
+    gap_rows
+  ) %>% dplyr::arrange(icd9_10)
+})
+
+test_that("185 -> Male Genital System when fix_lookup_gaps=TRUE", {
+  skip_if_no_xlsx()
+  expect_equal(lookup_site("185", lookup_patched), "Male Genital System")
+})
+
+test_that("193 -> Endocrine when fix_lookup_gaps=TRUE", {
+  skip_if_no_xlsx()
+  expect_equal(lookup_site("193", lookup_patched), "Endocrine")
+})
+
+test_that("179 -> Female Genital System when fix_lookup_gaps=TRUE", {
+  skip_if_no_xlsx()
+  expect_equal(lookup_site("179", lookup_patched), "Female Genital System")
+})
+
+test_that("181 -> Female Genital System when fix_lookup_gaps=TRUE", {
+  skip_if_no_xlsx()
+  expect_equal(lookup_site("181", lookup_patched), "Female Genital System")
 })

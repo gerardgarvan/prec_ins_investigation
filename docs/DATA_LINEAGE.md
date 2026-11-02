@@ -189,7 +189,7 @@ SAS-era ranges cited in the code:
 
 | Sheet | SAS-era range cited | Actual rows in repo copy |
 |-------|---------------------|--------------------------|
-| ForSAS_ICD10 | A1:D1018 (→ 1,017 data rows) | ~1,130 rows |
+| ForSAS_ICD10 | A1:D1018 (→ 1,017 data rows) | 966 rows |
 | ForSAS_ICD9toICD10 | D1:E2917 (→ 2,916 pairs) | ~967 pairs |
 
 TODO(ERIN): Confirm whether the xlsx in `/orange` is the file that was live when the SAS
@@ -206,6 +206,10 @@ will leave these as `group_site = NA` (or "Reportable but not mapped above" afte
 
 | ICD Code | Description | Expected Group_Site | Status |
 |----------|-------------|---------------------|--------|
+| 185 | Malignant neoplasm of prostate (ICD-9) | Male Genital System | MISSING from crosswalk cols A and D — TODO(ERIN) |
+| 193 | Malignant neoplasm of thyroid (ICD-9) | Endocrine | MISSING from crosswalk cols A and D — TODO(ERIN) |
+| 179 | Malignant neoplasm of uterus NOS (ICD-9) | Female Genital System | MISSING from crosswalk cols A and D — TODO(ERIN) |
+| 181 | Malignant neoplasm of placenta (ICD-9) | Female Genital System | MISSING from crosswalk cols A and D — TODO(ERIN) |
 | C19 | Malignant neoplasm of rectosigmoid junction | Digestive | MISSING from ForSAS_ICD10 |
 | C20 | Malignant neoplasm of rectum | Digestive | MISSING from ForSAS_ICD10 |
 | C23 | Malignant neoplasm of gallbladder | Digestive | MISSING from ForSAS_ICD10 |
@@ -219,7 +223,7 @@ Additional issues found in `CancerSiteCategories.xlsx`:
 - **Trailing spaces**: Some `Group_Site` values may have trailing whitespace (Excel artifact).
 
 **Fix available**: Set `options(prec_ins.fix_lookup_gaps = TRUE)` before sourcing
-`R/00_build_icd_groups.R` to add the 7 missing codes and fix the "Unrinary" typo.
+`R/00_build_icd_groups.R` to add all 11 missing codes and fix the "Unrinary" typo.
 Default is `FALSE` (SAS-faithful — reproduces SAS output including the gaps).
 
 ### Provider Specialty Cancer Flags — TODO(ERIN)
