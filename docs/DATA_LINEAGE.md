@@ -140,9 +140,11 @@ legacy summary rows). Notable items:
   Status: **confirmed broken pipe**. The pipeline will error at `03_covariates.R:L171` unless
   `first_can_ruca` is added to `03_cohort.R` or `03_outcomes.R`.
 
-- **`first_can_sdi_score`**: consumed at `03_covariates.R:L148`. Same root cause — the
-  ZCTA→SDI linkage join that would produce this column does not exist in any R script.
-  Status: **confirmed broken pipe**.
+- **`first_can_sdi_score`**: consumed at `03_covariates.R:L148`. Previously a confirmed broken pipe.
+  **RESOLVED (2026-11-02):** `00_build_sdi.R` reads `reference/asset_rgc_sdi_2011_through_2015_zcta.csv`
+  (RGC SDI 2011-2015, 32,989 ZCTAs; sourced in `01_import.R` GROUP 8b), produces
+  `01_imported_sdi.rds`; `03_geo.R` Section 7 reads that RDS and joins ZCTA→SDI,
+  producing `first_can_sdi_score` (1-100 percentile). Status: **CONFIRMED — pipe repaired**.
 
 ### Files imported but checkpoint never consumed
 

@@ -8,6 +8,7 @@ not patient data, and do not contain HIPAA-protected information.
 | CancerSiteCategories.xlsx | /orange/erin.mobley-precision/ (originally F:\Jax_Ascent\) | R/00_build_icd_groups.R -> 01_imported_icd_groups.rds -> 02_clean.R ICD site grouping | 2026-11-02 |
 | nucc_taxonomy_210.xlsx | Supplied by Gerard, originally F:\Jax_Ascent\ | R/00_build_prov_spec.R -> 01_imported_prov_spec.rds -> 02_merge.R cancer_provider flag | 2026-11-02 |
 | RUCA2010zipcode.xlsx | USDA ERS (public; originally F:\Jax_Ascent\RUCA2010zipcode.xlsx, SAS imported sheet "sas$A1:41165") | R/00_build_ruca.R -> 01_imported_ruca.rds -> 03_geo.R first_can_ruca derivation | 2026-11-02 |
+| asset_rgc_sdi_2011_through_2015_zcta.csv | Robert Graham Center SDI (2011-2015 ACS, by ZCTA); replaces ACS2015_zctaallvars.xlsx (xlsx never obtained) | R/00_build_sdi.R -> 01_imported_sdi.rds -> 03_geo.R first_can_sdi_score derivation | 2026-11-02 |
 
 ## Sheets used
 
@@ -22,4 +23,10 @@ not patient data, and do not contain HIPAA-protected information.
 - `Data` A1:E41165 -- ZIP_CODE, STATE, ZIP_TYPE, RUCA1 (1-10, 99), RUCA2 (with decimals); 41,164 data rows
 - Column rename in 00_build_ruca.R: ZIP_CODE→ADDRESS_ZIP5, STATE→STATE_ruca, ZIP_TYPE→ZIP_TYPE_ruca
 - RUCA1=99 = water/territory areas; excluded from ruca3 derivation
-- Note: ACS2015_zctaallvars.xlsx (SDI source) is NOT in this repo — obtain from HiPerGator ww library
+
+**asset_rgc_sdi_2011_through_2015_zcta.csv**
+- Single CSV table, 32,989 data rows (1 header + 32,989 rows), 18 columns
+- Columns used: ZCTA5_FIPS (zero-padded to 5-char text in 00_build_sdi.R) + SDI_score (1-100 percentile)
+- SDI_score is the 1-100 PERCENTILE score — NOT the raw `sdi` composite z-score column
+- This file supersedes ACS2015_zctaallvars.xlsx (same ACS 2011-2015 vintage); the xlsx was never obtained from HiPerGator
+- SDI is now sourced entirely from the RGC CSV committed to this repo
