@@ -9,8 +9,8 @@
 #
 # Inputs:  data/processed/01_imported_demo.rds
 #          data/processed/01_imported_enroll.rds
-#          data/processed/02_dx_combined.rds
-#          data/processed/02_merged_enc_dx.rds
+#          data/processed/02_dx_encounter.rds   (replaces 02_dx_combined.rds)
+#          data/processed/02_merged_complete.rds (replaces 02_merged_enc_dx.rds)
 #          data/processed/01_formats.rds
 # Outputs: data/processed/03_cohort.rds
 #          data/processed/03_cohort_attrition.rds
@@ -43,15 +43,18 @@ message("========================================")
 demo <- readRDS(file.path(data_dir_processed, "01_imported_demo.rds"))
 enroll <- readRDS(file.path(data_dir_processed, "01_imported_enroll.rds"))
 
-# Load Phase 2 combined diagnosis data and merged encounter-dx data
-dx_combined <- readRDS(file.path(data_dir_processed, "02_dx_combined.rds"))
-merged_enc_dx <- readRDS(file.path(data_dir_processed, "02_merged_enc_dx.rds"))
+# 02_dx_encounter.rds: one row per (patid, encounterid) with cancer flags.
+# Replaces the former 02_dx_combined.rds (50+ GB full dx table).
+dx_encounter <- readRDS(file.path(data_dir_processed, "02_dx_encounter.rds"))
+# 02_merged_complete.rds: one row per encounter (admit_date, payer, provider, dx flags).
+# Replaces 02_merged_enc_dx.rds (which was one row per encounter-dx pair).
+merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds"))
 
 message("Loaded datasets:")
 message("  demo: ", format(nrow(demo), big.mark = ","), " rows")
 message("  enroll: ", format(nrow(enroll), big.mark = ","), " rows")
-message("  dx_combined: ", format(nrow(dx_combined), big.mark = ","), " rows")
-message("  merged_enc_dx: ", format(nrow(merged_enc_dx), big.mark = ","), " rows")
+message("  dx_encounter: ", format(nrow(dx_encounter), big.mark = ","), " rows (unique patid+encounterid)")
+message("  merged_complete: ", format(nrow(merged_complete), big.mark = ","), " rows (one per encounter)")
 
 # ========================================
 # Section 3 -- Initialize Attrition Tracker
@@ -136,23 +139,23 @@ attrition <- add_attrition_step(attrition, 2, "Valid enrollment", n_valid_enr, n
 #   4. Sort by id, descending any_reportable_cancer, admit_date -> keep first per id
 #   5. This gives one row per patient with their first cancer diagnosis encounter
 
-# R translation:
-# Step 3a: Identify cancer patients from dx_combined
-cancer_dx <- dx_combined %>%
+# R translation (uses 02_dx_encounter.rds + 02_merged_complete.rds):
+# Step 3a: Identify cancer encounters from dx_encounter (one row per patid+encounterid)
+#          dx_encounter.any_reportable_cancer = 1 means >= 1 cancer dx at that encounter.
+cancer_dx_enc <- dx_encounter %>%
   filter(any_reportable_cancer == 1) %>%
-  select(patid, encounterid, dx, any_reportable_cancer)
+  select(patid, encounterid, any_reportable_cancer, cancer_dx)
 
-message("  Cancer diagnosis records: ", format(nrow(cancer_dx), big.mark = ","), " rows")
+message("  Cancer encounter-patient pairs: ", format(nrow(cancer_dx_enc), big.mark = ","), " rows")
 
-# Step 3b: Join with merged_enc_dx to get admit_date
-# Use merged_enc_dx (encounters + diagnoses) which has admit_date
-cancer_encounters <- merged_enc_dx %>%
-  semi_join(cancer_dx, by = c("patid", "encounterid")) %>%
-  filter(any_reportable_cancer == 1) %>%
-  select(patid, encounterid, admit_date, dx, any_reportable_cancer) %>%
+# Step 3b: Join to merged_complete to get admit_date (one row per encounter)
+# merged_complete has admit_date and payer columns for every encounter.
+cancer_encounters <- merged_complete %>%
+  semi_join(cancer_dx_enc, by = c("patid", "encounterid")) %>%
+  select(patid, encounterid, admit_date, any_reportable_cancer, cancer_dx) %>%
   distinct()
 
-message("  Cancer encounters: ", format(nrow(cancer_encounters), big.mark = ","), " rows")
+message("  Cancer encounters (with admit_date): ", format(nrow(cancer_encounters), big.mark = ","), " rows")
 
 # Step 3c: Get first cancer diagnosis date per patient (COH-05)
 # Per Research Pitfall 3: Deterministic tie-breaking with slice_min(with_ties = FALSE)
@@ -162,7 +165,7 @@ first_cancer_per_patient <- cancer_encounters %>%
   group_by(patid) %>%
   slice_min(admit_date, n = 1, with_ties = FALSE) %>%
   ungroup() %>%
-  select(patid, first_admit_date = admit_date, first_can_encounterid = encounterid, first_cancer_dx = dx)
+  select(patid, first_admit_date = admit_date, first_can_encounterid = encounterid, first_cancer_dx = cancer_dx)
 
 message("  Patients with cancer diagnosis: ", format(nrow(first_cancer_per_patient), big.mark = ","))
 
@@ -232,9 +235,10 @@ message("\nFinal cohort: ", format(nrow(final_cohort), big.mark = ","), " patien
 # - age2 = age category at diagnosis (already in demo)
 
 # Join first cancer encounter details
-# Get payer info from merged_enc_dx at first cancer encounter
-first_cancer_encounter_details <- merged_enc_dx %>%
-  semi_join(final_cohort %>% select(patid, first_can_encounterid), by = c("patid", "encounterid" = "first_can_encounterid")) %>%
+# Get payer info from merged_complete (one row per encounter — no distinct() needed)
+first_cancer_encounter_details <- merged_complete %>%
+  semi_join(final_cohort %>% select(patid, first_can_encounterid),
+            by = c("patid", "encounterid" = "first_can_encounterid")) %>%
   select(patid, encounterid, payer_type_primary, payer_primary_grouped) %>%
   distinct(patid, .keep_all = TRUE)
 
