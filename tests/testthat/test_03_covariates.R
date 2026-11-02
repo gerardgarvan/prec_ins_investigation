@@ -58,43 +58,47 @@ test_that("COV-01: demographics recoded with PCORnet CDM labels", {
 # ==============================================================================
 
 test_that("COV-02: age categories match SAS age2 groupings", {
-  # age2: <15->1, 15-40->2, 40-54->3, 55-64->4, 65+->5
-  # Assert P101 (age 62) -> age2==4, P102 (age 70) -> age2==5, P105 (age 38) -> age2==2
+  # age is computed from birth_date + first_admit_date (no age column in raw data).
+  # SAS V5_2 line 78: age=floor((today-BIRTH_DATE)/365.25)
+  # R: age_at_dx = floor(as.numeric(first_admit_date - birth_date) / 365.25)
+  # age2: <15->1, <40->2, <55->3, <65->4, else->5 (SAS V5_2 lines 91-96)
 
-  # Expected from fixture design:
-  # P101: age=62 -> age2=4 (55-64)
-  # P102: age=70 -> age2=5 (65+)
-  # P105: age=38 -> age2=2 (15-40)
-  # P109: age=12 -> age2=1 (0-14)
+  # Build age_at_dx from fixture birth_dates and first cancer encounter admit_dates.
+  first_dx_dates <- mock_p3_dx %>%
+    filter(any_reportable_cancer == 1) %>%
+    inner_join(
+      mock_p3_encounters %>% select(patid, encounterid, admit_date),
+      by = c("patid", "encounterid")
+    ) %>%
+    group_by(patid) %>%
+    slice_min(admit_date, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    select(patid, first_admit_date = admit_date)
 
-  # Test specific patients
-  p101 <- mock_p3_demo %>% filter(patid == "P101")
-  expect_equal(p101$age2, 4)
-
-  p102 <- mock_p3_demo %>% filter(patid == "P102")
-  expect_equal(p102$age2, 5)
-
-  p105 <- mock_p3_demo %>% filter(patid == "P105")
-  expect_equal(p105$age2, 2)
-
-  p109 <- mock_p3_demo %>% filter(patid == "P109")
-  expect_equal(p109$age2, 1)
-
-  # Test age2 derivation logic (if implementing from scratch)
-  age2_derived <- mock_p3_demo %>%
+  demo_with_age <- mock_p3_demo %>%
+    left_join(first_dx_dates, by = "patid") %>%
     mutate(
-      age2_calc = case_when(
-        age < 15 ~ 1,
-        age >= 15 & age < 40 ~ 2,
-        age >= 40 & age < 55 ~ 3,
-        age >= 55 & age < 65 ~ 4,
-        age >= 65 ~ 5,
-        TRUE ~ NA_real_
+      age_at_dx = floor(as.numeric(first_admit_date - birth_date) / 365.25),
+      age2 = case_when(
+        age_at_dx < 15 ~ 1L,
+        age_at_dx < 40 ~ 2L,
+        age_at_dx < 55 ~ 3L,
+        age_at_dx < 65 ~ 4L,
+        !is.na(age_at_dx) ~ 5L,
+        TRUE ~ NA_integer_
       )
     )
 
-  # All age2 values should match age2_calc
-  expect_equal(age2_derived$age2, age2_derived$age2_calc)
+  # Expected age2 per fixture birth_dates / encounter dates:
+  # P101: born 1960-03-15, first cancer 2019-08-15 -> ~59 -> age2=4 (55-64)
+  # P102: born 1952-06-20, first cancer 2019-09-12 -> ~67 -> age2=5 (65+)
+  # P105: born 1984-09-25, first cancer 2020-01-08 -> ~35 -> age2=2 (15-40)
+  # P109: born 2010-02-14, first cancer 2019-09-05 -> ~9  -> age2=1 (0-14)
+
+  expect_equal(demo_with_age %>% filter(patid == "P101") %>% pull(age2), 4L)
+  expect_equal(demo_with_age %>% filter(patid == "P102") %>% pull(age2), 5L)
+  expect_equal(demo_with_age %>% filter(patid == "P105") %>% pull(age2), 2L)
+  expect_equal(demo_with_age %>% filter(patid == "P109") %>% pull(age2), 1L)
 })
 
 # ==============================================================================

@@ -105,6 +105,13 @@ mock_p3_sas_formats$int <- list(
 # Mock Demographics (15 patients)
 # ==============================================================================
 
+# Columns match confirmed demographic_mobley_v5 schema on HiPerGator:
+#   ID, BIRTH_DATE, SEX, SEXUAL_ORIENTATION, GENDER_IDENTITY, HISPANIC, RACE,
+#   BIOBANK_FLAG, PAT_PREF_LANGUAGE_SPOKEN, RAW_*, SOURCE, DECEASED, NEW_PT.
+# NO age or age2 columns — these are computed in R from birth_date + first_admit_date
+#   (SAS V5_2 line 78: age=floor((today-BIRTH_DATE)/365.25)).
+# birth_date values are chosen so that age_at_dx (relative to each patient's first_admit_date
+#   in mock_p3_encounters) reproduces the expected cohort attrition (P109 excluded at age<18).
 mock_p3_demo <- tibble(
   patid = c("P101", "P102", "P103", "P104", "P105", "P106", "P107", "P108", "P109", "P110",
             "P111", "P112", "P113", "P114", "P115"),
@@ -118,16 +125,14 @@ mock_p3_demo <- tibble(
   hispanic = c("N", "N", "Y", "N", "N", "N", "N", "UN", "N", "N",
                "N", "N", "N", "N", "N"),
   deceased = c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+  new_pt = c(0L, 0L, 1L, 0L, 1L, 0L, 0L, 0L, 1L, 0L, 0L, 0L, 0L, 0L, 0L),
   source = rep("EHR", 15),
-  age = c(62, 70, 45, 55, 38, 72, 50, 68, 12, 60,
-          57, 64, 42, 52, 47),
-  age2 = c(4, 5, 3, 4, 2, 5, 3, 5, 1, 4,
-           4, 5, 3, 4, 3),  # agef categories: 1=0-14, 2=15-39, 3=40-54, 4=55-64, 5=65+
-  valid_id = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-               1, 1, 1, 0, 0),  # P114, P115 fail valid enrollment
   gender_identity = rep("NI", 15),
   sexual_orientation = rep("NI", 15),
-  new_pt = c(0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0),
+  biobank_flag = rep(NA_character_, 15),
+  pat_pref_language_spoken = rep("eng", 15),
+  valid_id = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+               1, 1, 1, 0, 0),  # P114, P115 fail valid enrollment
   enr_end_date = as.Date(c("2022-12-31", "2022-12-31", "2022-12-31", "2022-12-31", "2022-12-31",
                            "2022-12-31", "2022-12-31", "2022-12-31", "2022-12-31", "2022-12-31",
                            "2022-12-31", "2022-12-31", "2022-12-31", NA, NA))
@@ -241,6 +246,28 @@ mock_p3_encounters <- bind_rows(
     providerid = c("PROV005", "PROV005"),
     payer_type_primary = c("1", "1"),  # Medicare -> Medicare (change_ins=0)
     payer_type_primary2 = c("Medicare", "Medicare")
+  ),
+  # P109: 1 encounter — has cancer dx but age_at_dx ~9 (born 2010-02-14, encounter 2019-09-05)
+  tibble(
+    patid = "P109",
+    encounterid = "E109_001",
+    enc_type = "AV",
+    admit_date = as.Date("2019-09-05"),
+    discharge_date = as.Date("2019-09-05"),
+    providerid = "PROV002",
+    payer_type_primary = "5",
+    payer_type_primary2 = "Private"
+  ),
+  # P110: 1 encounter — has cancer dx but sex="UN" (excluded at sex filter)
+  tibble(
+    patid = "P110",
+    encounterid = "E110_001",
+    enc_type = "AV",
+    admit_date = as.Date("2019-10-01"),
+    discharge_date = as.Date("2019-10-01"),
+    providerid = "PROV002",
+    payer_type_primary = "5",
+    payer_type_primary2 = "Private"
   )
 )
 

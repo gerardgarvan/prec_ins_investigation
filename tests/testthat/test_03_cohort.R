@@ -64,8 +64,24 @@ test_that("COH-03: sequential exclusion logs patient counts", {
     semi_join(cancer_patients, by = "patid")
   n3 <- nrow(step3)
 
-  # Step 4: Age >= 18
-  step4 <- step3 %>% filter(age >= 18)
+  # Step 4: Age >= 18 (computed from birth_date + first cancer encounter admit_date)
+  # Reproduce age_at_dx for the test by joining to the first cancer encounter dates.
+  first_dx_dates <- mock_p3_dx %>%
+    filter(any_reportable_cancer == 1) %>%
+    inner_join(
+      mock_p3_encounters %>% select(patid, encounterid, admit_date),
+      by = c("patid", "encounterid")
+    ) %>%
+    group_by(patid) %>%
+    slice_min(admit_date, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    select(patid, first_admit_date = admit_date)
+
+  step3_with_age <- step3 %>%
+    left_join(first_dx_dates, by = "patid") %>%
+    mutate(age_at_dx = floor(as.numeric(first_admit_date - birth_date) / 365.25))
+
+  step4 <- step3_with_age %>% filter(age_at_dx >= 18)
   n4 <- nrow(step4)
 
   # Step 5: Sex != "UN"
