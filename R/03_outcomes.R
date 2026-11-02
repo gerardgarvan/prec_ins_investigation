@@ -88,6 +88,23 @@ message("Follow-up encounters: ", format(nrow(followup_encounters), big.mark = "
 
 message("\n=== Section 4: Encounter-Level Visit Type Flags ===")
 
+# cancer_provider is required for OUT-03 and OUT-04.
+# It is NOT present in 02_merged_complete.rds because the provider table on
+# HiPerGator has no cancer_provider column — the flag exists only in prov_spec,
+# derived from nucc_taxonomy_210.xlsx (sheet "sas", A1:D866) joined on
+# PROVIDER_SPECIALTY_PRIMARY.  That join was never translated to R.
+# See DATA_LINEAGE.md — "Blocking: cancer_provider".
+# TODO(ERIN): obtain nucc_taxonomy_210.xlsx, import prov_spec in 01_import.R,
+#   join in 02_merge.R on PROVIDER_SPECIALTY_PRIMARY, and re-run this script.
+if (!"cancer_provider" %in% names(followup_encounters)) {
+  stop(
+    "cancer_provider column is missing from followup_encounters.\n",
+    "Outcomes 3 (Cancer_visit_and_prov) and 4 (Survivorship_visit) are blocked.\n",
+    "Fix: add prov_spec join in 02_merge.R using nucc_taxonomy_210.xlsx.\n",
+    "See DATA_LINEAGE.md section 'Blocking: cancer_provider' for details."
+  )
+}
+
 followup_encounters <- followup_encounters %>%
   mutate(
     # OUT-01: Non-acute care (SAS V5_8 line 77)

@@ -162,6 +162,27 @@ legacy summary rows). Notable items:
   unquoted in certain contexts (e.g. `with(df, source(...))`) could call the base function
   instead. Status: **suspected** (compiles, may cause confusion; label carefully in downstream code).
 
+### Blocking: cancer_provider (outcomes 3 and 4)
+
+- **`cancer_provider`**: consumed at `03_outcomes.R:Section 4` for `Cancer_visit_and_prov`
+  (OUT-03) and `Survivorship_visit` (OUT-04). It is a binary flag (1 = oncology specialist)
+  derived in SAS from a LEFT JOIN of `v4.provider` to `v4.prov_spec` on `PROVIDER_SPECIALTY_PRIMARY`.
+  `prov_spec` is imported from `F:\Jax_Ascent\nucc_taxonomy_210.xlsx` (sheet "sas", A1:D866),
+  which contains the `Cancer_provider` column pre-computed from NUCC Taxonomy 2.1.0
+  (qualifying specialties: Hematologist, Oncologist, Hematologist/Oncologist, Surgical Oncologist,
+  Radiation Oncologist).
+  The HiPerGator `provider` table has no `cancer_provider` column (confirmed: only PROVIDERID,
+  PROVIDER_SPECIALTY_PRIMARY, RAW_PROVIDER_SPECIALTY_PRIMARY, SOURCE). The xlsx file is not
+  available at the time of this writing.
+  Status: **confirmed broken pipe — outcomes 3 and 4 blocked**.
+  `03_outcomes.R` will `stop()` with an actionable error message if this column is absent.
+  Fix: import `nucc_taxonomy_210.xlsx` in `01_import.R`, join to provider on
+  `PROVIDER_SPECIALTY_PRIMARY` in `02_merge.R`, producing `cancer_provider` in
+  `02_provider_full.rds` and therefore in `02_merged_complete.rds`.
+  SAS references: `new828.sas:L115–132` (prov_spec import + join), `new828.sas:L2020–2027`
+  (usage in visit-type flag logic).
+  TODO(ERIN): obtain `nucc_taxonomy_210.xlsx` and implement prov_spec join.
+
 ### Columns confirmed to flow correctly
 
 - **`any_reportable_cancer`**: produced at `02_clean.R:L170` (`part[, any_reportable_cancer := ...]`)

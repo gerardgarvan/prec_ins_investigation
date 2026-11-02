@@ -124,10 +124,15 @@ message("  any_reportable_cancer=1 in merged: ",
 # Section 6 -- Merge 2: Provider
 # ========================================
 
-# Consolidate provider data (no separate prov_spec file in V5 — provider table
-# already includes specialty; see 01_import.R Group 3 comment).
-# Keep provider as-is for the providerid join.
-provider_full <- provider
+# The provider table (from 01_import.R) includes SOURCE (institution source tag).
+# KEEP_ENC also includes SOURCE, so encounters already have a `source` column.
+# Rename provider's SOURCE to provider_source before the join to prevent a
+# conflicting column pair (source.x / source.y) in the merged dataset.
+# NOTE: cancer_provider is NOT in this table — it requires joining prov_spec
+# (nucc_taxonomy_210.xlsx). See DATA_LINEAGE.md "Blocking: cancer_provider".
+provider_full <- provider %>%
+  rename(provider_source = source)
+
 saveRDS(provider_full, file.path(data_dir_processed, "02_provider_full.rds"))
 message("Saved: 02_provider_full.rds (", format(nrow(provider_full), big.mark = ","), " rows)")
 
