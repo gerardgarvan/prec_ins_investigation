@@ -89,6 +89,7 @@ graph TD
     merged -->|"03_cohort.R readRDS :L51"| cohort["03_cohort.rds"]
     merged -->|"03_exposure.R"| exposure["03_exposure.rds"]
     merged -->|"03_outcomes.R"| outcomes["03_outcomes.rds"]
+    outcomes -->|"03_covariates.R readRDS :L40"| covariates["03_analytical.rds"]
 ```
 
 ---
