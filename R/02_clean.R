@@ -252,7 +252,7 @@ message("dx_encounter: ", format(nrow(dx_encounter), big.mark = ","), " unique (
         format(sum(dx_encounter$icd_personal_trt == 1L, na.rm = TRUE), big.mark = ","),
         " | in memory: ", format(object.size(dx_encounter), units = "MB", standard = "legacy"))
 
-saveRDS(as.data.frame(dx_encounter), file.path(data_dir_processed, "02_dx_encounter.rds"))
+saveRDS(tibble::as_tibble(dx_encounter), file.path(data_dir_processed, "02_dx_encounter.rds"))
 message("Saved: 02_dx_encounter.rds")
 rm(dx_all_parts, dx_encounter); gc(verbose = FALSE)
 
@@ -333,7 +333,7 @@ proc_patient_flags <- proc_all[, .(
 
 message("proc_patient_flags: ", format(nrow(proc_patient_flags), big.mark = ","), " patients",
         " | in memory: ", format(object.size(proc_patient_flags), units = "MB", standard = "legacy"))
-saveRDS(as.data.frame(proc_patient_flags), file.path(data_dir_processed, "02_proc_patient_flags.rds"))
+saveRDS(tibble::as_tibble(proc_patient_flags), file.path(data_dir_processed, "02_proc_patient_flags.rds"))
 message("Saved: 02_proc_patient_flags.rds")
 rm(proc_all, proc_patient_flags); gc(verbose = FALSE)
 
@@ -350,29 +350,32 @@ rm(proc_all, proc_patient_flags); gc(verbose = FALSE)
 #   e.g. "72205006101" -> strip non-digits -> "72205006101" -> first 9 -> "722050061"
 dispensing <- read_checkpoint(file.path(data_dir_processed, "01_imported_dispensing.rds"))
 
-dispensing_patids <- data.frame(patid = unique(dispensing$patid))
-saveRDS(dispensing_patids, file.path(data_dir_processed, "02_dispensing_patids.rds"))
-message("Saved: 02_dispensing_patids.rds (", nrow(dispensing_patids), " patients with dispensing records)")
+disp_dt <- as.data.table(dispensing)
 
-disp <- dplyr::transmute(
-  dispensing,
-  patid,
-  ndc_raw = ndc,
-  ndc9    = substr(stringr::str_remove_all(as.character(ndc), "[^0-9]"), 1, 9)
-)
+# distinct patids (backward-compat output)
+dispensing_patids <- unique(disp_dt[, .(patid)])
+saveRDS(tibble::as_tibble(dispensing_patids),
+        file.path(data_dir_processed, "02_dispensing_patids.rds"))
+message("Saved: 02_dispensing_patids.rds (", nrow(dispensing_patids),
+        " patients with dispensing records)")
 
-# Detect non-standard NDC lengths (7/8-char codes) before deduplication
-ndc_len_report <- disp |>
-  dplyr::mutate(ndc_len = nchar(ndc9)) |>
-  dplyr::count(ndc_len, name = "n_rows")
+# NDC normalization: digit-strip then first 9 chars (matches prior dplyr logic)
+disp_dt[, ndc_raw := ndc]
+disp_dt[, ndc9 := substr(gsub("[^0-9]", "", as.character(ndc)), 1L, 9L)]
+
+# Non-standard NDC length report (pre-dedup) — preserve existing diagnostic message
+ndc_len_report <- disp_dt[, .(n_rows = .N), keyby = .(ndc_len = nchar(ndc9))]
 message("  Dispensing ndc9 length distribution (pre-dedup):")
-print(ndc_len_report)
+print(as.data.frame(ndc_len_report))
 
-dispensing_ndc <- dplyr::distinct(disp, patid, ndc9, .keep_all = TRUE)
-saveRDS(dispensing_ndc, file.path(data_dir_processed, "02_dispensing_ndc.rds"))
-message("Saved: 02_dispensing_ndc.rds (", nrow(dispensing_ndc), " distinct patid x ndc9 rows)")
+# distinct patid x ndc9, keep first occurrence of other cols (matches .keep_all = TRUE)
+dispensing_ndc <- unique(disp_dt, by = c("patid", "ndc9"))[, .(patid, ndc_raw, ndc9)]
+saveRDS(tibble::as_tibble(dispensing_ndc),
+        file.path(data_dir_processed, "02_dispensing_ndc.rds"))
+message("Saved: 02_dispensing_ndc.rds (", nrow(dispensing_ndc),
+        " distinct patid x ndc9 rows)")
 
-rm(dispensing, dispensing_patids, disp, dispensing_ndc, ndc_len_report); gc(verbose = FALSE)
+rm(dispensing, disp_dt, dispensing_patids, dispensing_ndc, ndc_len_report); gc(verbose = FALSE)
 
 # ========================================
 # Section 5 -- Missing Value Report (CLN-04)
@@ -495,7 +498,7 @@ print(janitor::tabyl(encounters, payer_secondary_recoded))
 # Section 8 -- Save Encounter Checkpoint
 # ========================================
 
-saveRDS(as.data.frame(encounters),
+saveRDS(tibble::as_tibble(encounters),
         file.path(data_dir_processed, "02_encounters_cleaned.rds"))
 message("\nSaved: 02_encounters_cleaned.rds (",
         format(nrow(encounters), big.mark = ","), " rows, ",
