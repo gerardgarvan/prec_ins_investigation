@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-11-03T16:18:09.268Z",
+  "phase": "quick-tasks",
+  "phase_name": "HiPerGator pipeline execution — OOM debugging",
+  "phase_dir": ".planning/quick",
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "SDI pipeline (00_build_sdi.R, 03_geo.R, tests)", "status": "done", "commit": "fcd2583"},
+    {"id": 2, "name": "NDC/dispensing pipeline (00_build_ndc.R, 02_clean.R, 03_exposure.R, tests)", "status": "done", "commit": "dac5eab"},
+    {"id": 3, "name": "Fix id->patid checkpoint migration (read_checkpoint in utils_import.R)", "status": "done", "commit": "e8dee93"},
+    {"id": 4, "name": "Convert 02_clean.R dispensing to data.table, tibble outputs", "status": "done", "commit": "ca4b323"},
+    {"id": 5, "name": "Add skip guards to 02_clean.R, 02_merge.R, 03_cohort/geo/exposure/covariates", "status": "done", "commit": "7956c52"},
+    {"id": 6, "name": "Rewrite 02_merge.R to data.table update-joins", "status": "done", "commit": "1d3269b"},
+    {"id": 7, "name": "Fix mget() OOM in 02_merge.R joins — replace with explicit := + setkeyv()", "status": "done", "commit": "c261561"}
+  ],
+  "remaining_tasks": [
+    {"id": 8, "name": "Confirm 02_merge.R runs to completion on HiPerGator without OOM", "status": "not_started"},
+    {"id": 9, "name": "Run full pipeline (03_cohort -> 03_geo -> 03_exposure -> 03_covariates) on HiPerGator", "status": "not_started"}
+  ],
+  "blockers": [
+    {
+      "description": "02_merge.R OOM at dx_encounter join (39.6 GB baseline + join working memory > 100 GB SLURM ceiling)",
+      "type": "technical",
+      "workaround": "Replaced mget() with explicit := and setkeyv() (commit c261561). Needs re-test on HiPerGator."
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "git pull && Rscript R/02_merge.R 2>&1 | tee merge.log on HiPerGator",
+      "context": "02_merge.R OOM fix just pushed (c261561). Need to verify it runs to completion.",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {"decision": "data.table Option A — convert heavy ops inside 02_clean.R and 02_merge.R only, keep downstream dplyr", "rationale": "02_clean.R was already ~90% data.table; 02_merge.R rewrote to update-joins to avoid 3x 30GB copies", "phase": "quick"},
+    {"decision": "Skip guards use quit(save='no', status=0) pattern — all output checkpoints must exist to skip", "rationale": "RStudio and run_all.R were re-running expensive scripts on every invocation", "phase": "quick"},
+    {"decision": "mget() replaced with explicit := column assignment in dx_encounter join", "rationale": "mget() materializes intermediate list; with 152M rows this pushed over 100GB ceiling", "phase": "quick"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "On HiPerGator: git pull && Rscript R/02_merge.R 2>&1 | tee merge.log — watch for [mem] lines and final 'Saved: 02_merged_complete.rds'",
+  "context_notes": "Pipeline is executing live on HiPerGator. 02_clean.R completed and all 5 checkpoints are on disk. 02_merge.R is the current blocker — it loads 33.9GB encounters + 6GB dx_encounter (39.6GB baseline) then joins them. The mget() fix should bring peak below 100GB. If it still OOMs, next step is to chunk the dx_encounter join by patid range."
+}
