@@ -23,6 +23,13 @@
 
 library(here)
 source(here::here("R", "config.R"))
+
+cohort_paths <- file.path(data_dir_processed, c("03_cohort.rds", "03_cohort_attrition.rds"))
+if (all(file.exists(cohort_paths))) {
+  message("Skipping 03_cohort.R — outputs already exist. Delete to force re-run.")
+  quit(save = "no", status = 0)
+}
+
 source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(assertr)

@@ -22,6 +22,13 @@
 
 library(here)
 source(here::here("R", "config.R"))
+
+exposure_path <- file.path(data_dir_processed, "03_exposure.rds")
+if (file.exists(exposure_path)) {
+  message("Skipping 03_exposure.R — output already exists. Delete to force re-run.")
+  quit(save = "no", status = 0)
+}
+
 source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(janitor)

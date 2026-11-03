@@ -32,6 +32,13 @@
 
 library(here)
 source(here::here("R", "config.R"))
+
+geo_paths <- file.path(data_dir_processed, c("03_geo.rds", "03_geo_attrition.rds"))
+if (all(file.exists(geo_paths))) {
+  message("Skipping 03_geo.R — outputs already exist. Delete to force re-run.")
+  quit(save = "no", status = 0)
+}
+
 source(here::here("R", "utils_import.R"))
 library(tidyverse)
 

@@ -20,6 +20,13 @@
 
 library(here)
 source(here::here("R", "config.R"))
+
+cov_paths <- file.path(data_dir_processed, c("03_analytical.rds", "03_analytical_mi.rds"))
+if (all(file.exists(cov_paths))) {
+  message("Skipping 03_covariates.R — outputs already exist. Delete to force re-run.")
+  quit(save = "no", status = 0)
+}
+
 source(here::here("R", "utils_import.R"))
 library(tidyverse)
 library(janitor)

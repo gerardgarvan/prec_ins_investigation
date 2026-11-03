@@ -32,6 +32,17 @@
 
 library(here)
 source(here::here("R", "config.R"))
+
+# Skip guard — both outputs must exist to skip
+merge_outputs <- c("02_provider_full.rds", "02_merged_complete.rds")
+merge_paths <- file.path(data_dir_processed, merge_outputs)
+if (all(file.exists(merge_paths))) {
+  message("Skipping 02_merge.R — all outputs already exist:")
+  for (p in merge_paths) message("  ", basename(p))
+  message("Delete any of the above to force a re-run.")
+  quit(save = "no", status = 0)
+}
+
 source(here::here("R", "utils_import.R"))
 library(data.table)
 
