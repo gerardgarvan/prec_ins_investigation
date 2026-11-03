@@ -23,6 +23,7 @@
 
 library(here)
 source(here::here("R", "config.R"))
+library(data.table)
 library(tidyverse)
 library(janitor)
 library(assertr)
@@ -41,10 +42,12 @@ message("========================================")
 
 # Load Phase 3 cohort with exposures
 cohort <- readRDS(file.path(data_dir_processed, "03_exposure.rds"))
+setDT(cohort)
 
 # merged_complete: one row per encounter, carries any_reportable_cancer and
 # icd_personal_trt (pre-aggregated in 02_clean.R from all dx rows per encounter).
 merged_complete <- readRDS(file.path(data_dir_processed, "02_merged_complete.rds"))
+setDT(merged_complete)
 
 message("Loaded datasets:")
 message("  cohort:          ", format(nrow(cohort),          big.mark = ","), " patients")
@@ -63,18 +66,17 @@ message("  merged_complete: ", format(nrow(merged_complete), big.mark = ","), " 
 
 message("\n=== Section 3: Filter to Follow-Up Encounters ===")
 
-followup_encounters <- merged_complete %>%
-  inner_join(
-    cohort %>% select(patid, first_admit_date),
-    by = "patid"
-  ) %>%
-  mutate(
-    days_firstcan_admitdate = as.numeric(difftime(admit_date, first_admit_date, units = "days"))
-  ) %>%
-  filter(days_firstcan_admitdate > 0)
+# Keyed merge: merged_complete joined to cohort[patid, first_admit_date]
+cohort_dates <- cohort[, .(patid, first_admit_date)]
+setkey(cohort_dates, patid)
+setkey(merged_complete, patid)
+
+followup_encounters <- merged_complete[cohort_dates, on = "patid", nomatch = 0L]
+followup_encounters[, days_firstcan_admitdate := as.numeric(admit_date - first_admit_date)]
+followup_encounters <- followup_encounters[days_firstcan_admitdate > 0]
 
 message("Follow-up encounters: ", format(nrow(followup_encounters), big.mark = ","),
-        " (from ", format(n_distinct(followup_encounters$patid), big.mark = ","), " patients)")
+        " (from ", format(uniqueN(followup_encounters$patid), big.mark = ","), " patients)")
 
 # ========================================
 # Section 4 -- Encounter-Level Visit Type Flags (OUT-01 through OUT-04)
@@ -113,43 +115,40 @@ tryCatch({
   )
 })
 
-followup_encounters <- followup_encounters %>%
-  mutate(
-    # OUT-01: Non-acute care (SAS V5_8 line 77)
-    # if ENC_TYPE in ('AV' 'TH') then Enc_nonacute_care=1; else Enc_nonacute_care=0;
-    Enc_nonacute_care = if_else(enc_type %in% c("AV", "TH"), 1L, 0L),
+# OUT-01: Non-acute care (SAS V5_8 line 77)
+# if ENC_TYPE in ('AV' 'TH') then Enc_nonacute_care=1; else Enc_nonacute_care=0;
+followup_encounters[, Enc_nonacute_care := fifelse(enc_type %in% c("AV", "TH"), 1L, 0L)]
 
-    # ICD_personal_trt: pre-computed in 02_clean.R (V5_8 line 81).
-    # Was formerly derived from raw dx column (one row per dx); now carried
-    # as a per-encounter max flag in merged_complete via 02_dx_encounter.rds.
-    # Codes: V87.41, V87.42, V87.43, V87.46, V15.3, Z92.21-Z92.23, Z92.25, Z92.3
-    ICD_personal_trt = replace_na(icd_personal_trt, 0L),
+# ICD_personal_trt: pre-computed in 02_clean.R (V5_8 line 81).
+# Was formerly derived from raw dx column (one row per dx); now carried
+# as a per-encounter max flag in merged_complete via 02_dx_encounter.rds.
+# Codes: V87.41, V87.42, V87.43, V87.46, V15.3, Z92.21-Z92.23, Z92.25, Z92.3
+followup_encounters[, ICD_personal_trt := fifelse(is.na(icd_personal_trt), 0L, icd_personal_trt)]
 
-    # OUT-02: Cancer-related visit (SAS V5_8 line 93)
-    # if Enc_nonacute_care=1 AND any_reportable_cancer=1 then Cancer_related_visit=1; else 0
-    Cancer_related_visit = if_else(
-      Enc_nonacute_care == 1L & any_reportable_cancer == 1L, 1L, 0L
-    ),
+# OUT-02: Cancer-related visit (SAS V5_8 line 93)
+# if Enc_nonacute_care=1 AND any_reportable_cancer=1 then Cancer_related_visit=1; else 0
+followup_encounters[, Cancer_related_visit := fifelse(
+  Enc_nonacute_care == 1L & any_reportable_cancer == 1L, 1L, 0L
+)]
 
-    # OUT-03: Cancer visit with provider (SAS V5_8 line 98)
-    # if Cancer_related_visit=1 AND Cancer_provider=1 then Cancer_visit_and_prov=1; else 0
-    Cancer_visit_and_prov = if_else(
-      Cancer_related_visit == 1L & cancer_provider == 1L, 1L, 0L
-    ),
+# OUT-03: Cancer visit with provider (SAS V5_8 line 98)
+# if Cancer_related_visit=1 AND Cancer_provider=1 then Cancer_visit_and_prov=1; else 0
+followup_encounters[, Cancer_visit_and_prov := fifelse(
+  Cancer_related_visit == 1L & cancer_provider == 1L, 1L, 0L
+)]
 
-    # OUT-04: Survivorship visit (SAS V5_8 line 104)
-    # if Enc_nonacute_care=1 AND Cancer_provider=1 AND ICD_personal_trt=1 then Survivorship_visit=1; else 0
-    Survivorship_visit = if_else(
-      Enc_nonacute_care == 1L & cancer_provider == 1L & ICD_personal_trt == 1L, 1L, 0L
-    )
-  )
+# OUT-04: Survivorship visit (SAS V5_8 line 104)
+# if Enc_nonacute_care=1 AND Cancer_provider=1 AND ICD_personal_trt=1 then Survivorship_visit=1; else 0
+followup_encounters[, Survivorship_visit := fifelse(
+  Enc_nonacute_care == 1L & cancer_provider == 1L & ICD_personal_trt == 1L, 1L, 0L
+)]
 
 # Log encounter-level flag distributions
 message("\nEncounter-level flag distributions:")
-message("  Enc_nonacute_care = 1: ", sum(followup_encounters$Enc_nonacute_care == 1, na.rm = TRUE))
-message("  Cancer_related_visit = 1: ", sum(followup_encounters$Cancer_related_visit == 1, na.rm = TRUE))
-message("  Cancer_visit_and_prov = 1: ", sum(followup_encounters$Cancer_visit_and_prov == 1, na.rm = TRUE))
-message("  Survivorship_visit = 1: ", sum(followup_encounters$Survivorship_visit == 1, na.rm = TRUE))
+message("  Enc_nonacute_care = 1: ", sum(followup_encounters$Enc_nonacute_care == 1L, na.rm = TRUE))
+message("  Cancer_related_visit = 1: ", sum(followup_encounters$Cancer_related_visit == 1L, na.rm = TRUE))
+message("  Cancer_visit_and_prov = 1: ", sum(followup_encounters$Cancer_visit_and_prov == 1L, na.rm = TRUE))
+message("  Survivorship_visit = 1: ", sum(followup_encounters$Survivorship_visit == 1L, na.rm = TRUE))
 
 # ========================================
 # Section 5 -- SAS V5_9 Dedup Before Aggregation
@@ -164,11 +163,12 @@ message("\n=== Section 5: Dedup Per Patient Per Admit Date ===")
 # SAS V5_9 pattern:
 # proc sort data=v3.followups_dx out=v3.v1_outcome1; by id admit_date descending Enc_nonacute_care; run;
 # proc sort data=v3.v1_outcome1 nodupkey; by id admit_date; run;
-
-deduped_encounters <- followup_encounters %>%
-  arrange(patid, admit_date, desc(Enc_nonacute_care), desc(Cancer_related_visit),
-          desc(Cancer_visit_and_prov), desc(Survivorship_visit)) %>%
-  distinct(patid, admit_date, .keep_all = TRUE)
+#
+# setorder() sorts in-place (no copy); unique(by=) deduplicates without copy.
+# Descending flags: prefix with - for integer columns.
+setorder(followup_encounters, patid, admit_date, -Enc_nonacute_care, -Cancer_related_visit,
+         -Cancer_visit_and_prov, -Survivorship_visit)
+deduped_encounters <- unique(followup_encounters, by = c("patid", "admit_date"))
 
 message("After dedup (one per patient per date): ",
         format(nrow(deduped_encounters), big.mark = ","), " encounter-dates")
@@ -188,47 +188,23 @@ message("\n=== Section 6: Patient-Level Aggregation ===")
 # sum(Enc_nonacute_care) as n_Enc_nonacute_care
 
 # Non-acute care count per patient
-outcome1 <- deduped_encounters %>%
-  group_by(patid) %>%
-  summarize(
-    n_Enc_nonacute_care = sum(Enc_nonacute_care, na.rm = TRUE),
-    n_followups_1 = n(),
-    .groups = "drop"
-  )
-
+outcome1 <- deduped_encounters[, .(n_Enc_nonacute_care = sum(Enc_nonacute_care, na.rm = TRUE),
+                                    n_followups_1 = .N), by = patid]
 message("  outcome1: ", nrow(outcome1), " patients with non-acute encounter counts")
 
 # Cancer-related visit count per patient
-outcome2 <- deduped_encounters %>%
-  group_by(patid) %>%
-  summarize(
-    n_Cancer_related_visit = sum(Cancer_related_visit, na.rm = TRUE),
-    n_followups_2 = n(),
-    .groups = "drop"
-  )
-
+outcome2 <- deduped_encounters[, .(n_Cancer_related_visit = sum(Cancer_related_visit, na.rm = TRUE),
+                                    n_followups_2 = .N), by = patid]
 message("  outcome2: ", nrow(outcome2), " patients with cancer-related visit counts")
 
 # Cancer visit + provider count per patient
-outcome3 <- deduped_encounters %>%
-  group_by(patid) %>%
-  summarize(
-    n_cancer_visit_and_prov = sum(Cancer_visit_and_prov, na.rm = TRUE),
-    n_followups_3 = n(),
-    .groups = "drop"
-  )
-
+outcome3 <- deduped_encounters[, .(n_cancer_visit_and_prov = sum(Cancer_visit_and_prov, na.rm = TRUE),
+                                    n_followups_3 = .N), by = patid]
 message("  outcome3: ", nrow(outcome3), " patients with cancer visit + provider counts")
 
 # Survivorship visit count per patient
-outcome4 <- deduped_encounters %>%
-  group_by(patid) %>%
-  summarize(
-    n_Survivorship_visit = sum(Survivorship_visit, na.rm = TRUE),
-    n_followups_4 = n(),
-    .groups = "drop"
-  )
-
+outcome4 <- deduped_encounters[, .(n_Survivorship_visit = sum(Survivorship_visit, na.rm = TRUE),
+                                    n_followups_4 = .N), by = patid]
 message("  outcome4: ", nrow(outcome4), " patients with survivorship visit counts")
 
 # ========================================
@@ -244,19 +220,10 @@ message("\n=== Section 7: Person-Time Calculation ===")
 # Person-time: days from first cancer dx to LAST follow-up encounter
 # SAS V5_11 lines 15-20: uses admit_date from v2_outcome (which is sorted desc, nodupkey by id = LAST date)
 # SAS V5_15 line 155: person_time_days=admit_date-first_admit_date
-person_time <- deduped_encounters %>%
-  group_by(patid) %>%
-  summarize(
-    last_admit_date = max(admit_date, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  left_join(cohort %>% select(patid, first_admit_date), by = "patid") %>%
-  mutate(
-    # OUT-05: person_time_days = as.numeric(difftime(..., units="days"))
-    person_time_days = as.numeric(difftime(last_admit_date, first_admit_date, units = "days")),
-    # Log-transformed for Poisson/NB regression offset (V5_18 line 17)
-    log_person_time_days = log(person_time_days)
-  )
+person_time <- deduped_encounters[, .(last_admit_date = max(admit_date, na.rm = TRUE)), by = patid]
+person_time <- cohort_dates[person_time, on = "patid"]
+person_time[, person_time_days    := as.numeric(last_admit_date - first_admit_date)]
+person_time[, log_person_time_days := log(person_time_days)]
 
 # Verify non-negative person-time (should be > 0 since we filtered admit > first)
 tryCatch({
@@ -283,24 +250,27 @@ message("  Max: ", max(person_time$person_time_days, na.rm = TRUE), " days")
 
 message("\n=== Section 8: Merge Outcomes to Cohort ===")
 
-cohort <- cohort %>%
-  left_join(outcome1, by = "patid") %>%
-  left_join(outcome2, by = "patid") %>%
-  left_join(outcome3, by = "patid") %>%
-  left_join(outcome4, by = "patid") %>%
-  left_join(person_time %>% select(patid, person_time_days, log_person_time_days, last_admit_date),
-            by = "patid") %>%
-  mutate(
-    # Fill missing counts with 0 (SAS V5_15 lines 156, 163, 170, 177: if missing then 0)
-    across(c(n_Enc_nonacute_care, n_Cancer_related_visit,
-             n_cancer_visit_and_prov, n_Survivorship_visit),
-           ~replace_na(.x, 0L)),
-    # Binary indicators (used in SAS V5_Table_1 for presence/absence)
-    enc_nonacute_ind = if_else(n_Enc_nonacute_care > 0, 1L, 0L),
-    cancer_related_ind = if_else(n_Cancer_related_visit > 0, 1L, 0L),
-    cancer_visit_and_prov_ind = if_else(n_cancer_visit_and_prov > 0, 1L, 0L),
-    Survivorship_visit_ind = if_else(n_Survivorship_visit > 0, 1L, 0L)
-  )
+setkey(cohort, patid)
+cohort <- outcome1[cohort, on = "patid"]
+cohort <- outcome2[cohort, on = "patid"]
+cohort <- outcome3[cohort, on = "patid"]
+cohort <- outcome4[cohort, on = "patid"]
+
+pt_cols <- c("patid", "person_time_days", "log_person_time_days", "last_admit_date")
+cohort <- person_time[, ..pt_cols][cohort, on = "patid"]
+
+# Fill missing counts with 0 (SAS V5_15 lines 156, 163, 170, 177: if missing then 0)
+count_cols <- c("n_Enc_nonacute_care", "n_Cancer_related_visit",
+                "n_cancer_visit_and_prov", "n_Survivorship_visit")
+for (col in count_cols) {
+  cohort[is.na(get(col)), (col) := 0L]
+}
+
+# Binary indicators (used in SAS V5_Table_1 for presence/absence)
+cohort[, enc_nonacute_ind          := fifelse(n_Enc_nonacute_care    > 0, 1L, 0L)]
+cohort[, cancer_related_ind        := fifelse(n_Cancer_related_visit  > 0, 1L, 0L)]
+cohort[, cancer_visit_and_prov_ind := fifelse(n_cancer_visit_and_prov > 0, 1L, 0L)]
+cohort[, Survivorship_visit_ind    := fifelse(n_Survivorship_visit    > 0, 1L, 0L)]
 
 message("Merged outcomes to cohort: ", nrow(cohort), " patients")
 
@@ -333,8 +303,7 @@ tryCatch({
 # Assertion 3: Cancer visits subset of non-acute
 # This is expected but not always true (depends on any_reportable_cancer presence)
 # Log as informational rather than strict assertion
-cancer_visits_exceed_nonacute <- cohort %>%
-  filter(n_Cancer_related_visit > n_Enc_nonacute_care)
+cancer_visits_exceed_nonacute <- cohort[n_Cancer_related_visit > n_Enc_nonacute_care]
 if (nrow(cancer_visits_exceed_nonacute) > 0) {
   message("INFO: ", nrow(cancer_visits_exceed_nonacute),
           " patients have more cancer-related visits than non-acute encounters")
@@ -386,7 +355,7 @@ message("  n_Survivorship_visit: mean=", round(mean(cohort$n_Survivorship_visit,
 # Section 10 -- Save Checkpoint
 # ========================================
 
-saveRDS(cohort, file.path(data_dir_processed, "03_outcomes.rds"))
+saveRDS(as_tibble(cohort), file.path(data_dir_processed, "03_outcomes.rds"))
 message("\nSaved: 03_outcomes.rds (", format(nrow(cohort), big.mark = ","), " patients, ",
         ncol(cohort), " variables)")
 
