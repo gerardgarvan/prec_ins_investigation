@@ -254,6 +254,7 @@ None identified.
 | 261102-ohb | Fix HiPerGator 02_clean.R id->patid failure: add read_checkpoint() to utils_import.R, route all patient checkpoint reads through it, strict enc column check, fixture tests (301 pass), many-to-many ICD join fix | 2026-11-02 | e8dee93 | [261102-ohb-fix-hipergator-02-clean-r-failure-add-re](.planning/quick/261102-ohb-fix-hipergator-02-clean-r-failure-add-re/) |
 | 261102-s3u | Convert 02_clean.R dispensing Section 4c to data.table; standardize all 5 saveRDS outputs to tibbles; 02_clean.R was already ~90% data.table | 2026-11-03 | ca4b323 | [261102-s3u-convert-02-clean-r-heavy-processing-sect](.planning/quick/261102-s3u-convert-02-clean-r-heavy-processing-sect/) |
 | 261103-a | Fix 03_cohort.R: dedup demo rows (804 duplicate patids) via distinct(patid,.keep_all=TRUE); fix assertr::within_bounds() Date type crash with dplyr filter approach | 2026-11-03 | 0bb2ae0 | inline |
+| 261103-b | Rewrite 03_outcomes.R to data.table: setorder()+unique(by=) replaces arrange()+distinct() at Section 5 (OOM fix); keyed merges, := mutations, in-place aggregation throughout | 2026-11-03 | 0b73219 | inline |
 
 ---
 *State tracking started: 2026-04-16*
