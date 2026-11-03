@@ -130,8 +130,15 @@ message("  Left rows:  ", fmt(n_before))
 message("  Right rows: ", fmt(nrow(dx_encounter)))
 message("  Columns added: ", paste(dx_cols, collapse = ", "))
 
-encounters[dx_encounter, (dx_cols) := mget(paste0("i.", dx_cols)),
-           on = c("patid", "encounterid")]
+setkeyv(encounters,  c("patid", "encounterid"))
+setkeyv(dx_encounter, c("patid", "encounterid"))
+# Explicit column assignment avoids mget() materializing an intermediate list
+encounters[dx_encounter, `:=`(
+  any_reportable_cancer = i.any_reportable_cancer,
+  icd_personal_trt      = i.icd_personal_trt,
+  cancer_dx             = i.cancer_dx,
+  group_site            = i.group_site
+)]
 
 stopifnot(nrow(encounters) == n_before)
 message("  Result rows: ", fmt(nrow(encounters)), " (growth 1x)")
@@ -190,7 +197,8 @@ clash_spec <- intersect(spec_cols, names(provider))
 if (length(clash_spec) > 0L) stop("prov_spec columns already in provider: ", paste(clash_spec, collapse = ", "))
 
 provider[, provider_specialty_primary_key := stringr::str_trim(toupper(provider_specialty_primary))]
-provider[prov_spec, (spec_cols) := mget(paste0("i.", spec_cols)),
+setkey(prov_spec, provider_specialty_primary)
+provider[prov_spec, cancer_provider := i.cancer_provider,
          on = c(provider_specialty_primary_key = "provider_specialty_primary")]
 
 # Unmatched specialty codes among providers that appear on encounters
@@ -219,6 +227,8 @@ message("  Left rows:  ", fmt(nrow(encounters)))
 message("  Right rows: ", fmt(nrow(provider)))
 message("  Columns added: ", paste(prov_cols, collapse = ", "))
 
+setkey(provider, providerid)
+setkeyv(encounters, "providerid")
 encounters[provider, (prov_cols) := mget(paste0("i.", prov_cols)), on = "providerid"]
 encounters[is.na(cancer_provider), cancer_provider := 0L]
 
