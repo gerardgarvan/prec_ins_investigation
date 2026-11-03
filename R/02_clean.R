@@ -22,6 +22,23 @@
 
 library(here)
 source(here::here("R", "config.R"))
+
+# Skip guard — all four outputs must exist to skip
+clean_outputs <- c(
+  "02_encounters_cleaned.rds",
+  "02_dx_encounter.rds",
+  "02_proc_patient_flags.rds",
+  "02_dispensing_patids.rds",
+  "02_dispensing_ndc.rds"
+)
+clean_paths <- file.path(data_dir_processed, clean_outputs)
+if (all(file.exists(clean_paths))) {
+  message("Skipping 02_clean.R — all outputs already exist:")
+  for (p in clean_paths) message("  ", basename(p))
+  message("Delete any of the above to force a re-run.")
+  quit(save = "no", status = 0)
+}
+
 library(tidyverse)
 library(data.table)
 library(haven)
