@@ -133,11 +133,13 @@ if (!"valid_id" %in% names(demo)) {
   cohort_valid_enr <- demo %>%
     left_join(valid_ids, by = "patid") %>%
     mutate(valid_id = if_else(is.na(valid_id), 0, valid_id)) %>%
-    filter(valid_id == 1)
+    filter(valid_id == 1) %>%
+    distinct(patid, .keep_all = TRUE)
 } else {
   # valid_id exists, use it directly
   cohort_valid_enr <- demo %>%
-    filter(valid_id == 1)
+    filter(valid_id == 1) %>%
+    distinct(patid, .keep_all = TRUE)
 }
 
 n_valid_enr <- n_distinct(cohort_valid_enr$patid)
@@ -317,18 +319,20 @@ tryCatch({
 })
 
 # Assertion 3: first_admit_date is in plausible range
-tryCatch({
-  final_cohort %>%
+# assertr::within_bounds() requires numeric; use dplyr filter instead.
+{
+  out_of_range <- final_cohort %>%
     filter(!is.na(first_admit_date)) %>%
-    assertr::insist(
-      assertr::within_bounds(as.Date("2000-01-01"), Sys.Date()),
-      first_admit_date,
-      description = "first_admit_date within plausible range (2000-present)"
-    )
-  message("PASS: first_admit_date within plausible range")
-}, error = function(e) {
-  warning("ASSERTION FAILED: first_admit_date out of range. ", conditionMessage(e))
-})
+    filter(first_admit_date < as.Date("2000-01-01") | first_admit_date > Sys.Date())
+  if (nrow(out_of_range) == 0) {
+    message("PASS: first_admit_date within plausible range")
+  } else {
+    warning("ASSERTION FAILED: first_admit_date out of range. ",
+            nrow(out_of_range), " patients with dates outside 2000-present. ",
+            "Range: ", format(min(out_of_range$first_admit_date)), " to ",
+            format(max(out_of_range$first_admit_date)))
+  }
+}
 
 # Assertion 4: One row per patient
 if (n_distinct(final_cohort$patid) != nrow(final_cohort)) {
