@@ -277,8 +277,8 @@ message("  SDI lookup rows: ", nrow(sdi_raw))
 # Join: ruca_combined -> zcta by ADDRESS_ZIP5 -> sdi by zcta
 ruca_zcta <- ruca_combined %>%
   left_join(
-    zcta %>% select(ADDRESS_ZIP5, zcta),
-    by = "ADDRESS_ZIP5"
+    zcta %>% select(address_zip5, zcta),
+    by = c("ADDRESS_ZIP5" = "address_zip5")
   )
 
 ruca_zcta_sdi <- ruca_zcta %>%
