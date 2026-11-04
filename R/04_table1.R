@@ -86,7 +86,7 @@ table1 <- analytical_tbl %>%
   select(
     change_ins,
     # Demographics
-    age, sex, race2, hispanic,
+    age_at_dx, sex, race2, hispanic,
     # Clinical
     group_site, intensity2,
     # Covariates
@@ -107,7 +107,7 @@ table1 <- analytical_tbl %>%
       all_categorical() ~ c(0, 1)
     ),
     label = list(
-      age ~ "Age (years)",
+      age_at_dx ~ "Age (years)",
       sex ~ "Sex",
       race2 ~ "Race",
       hispanic ~ "Hispanic ethnicity",
